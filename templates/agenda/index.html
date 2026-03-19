@@ -1,0 +1,366 @@
+{% extends "base.html" %}
+{% block title %}Agenda {{ nomes_meses[mes] }}/{{ ano }} - Ninho{% endblock %}
+
+{% set dias_header = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'] %}
+{% set status_cores = {
+    'agendada':            'bg-blue-100 text-blue-700 border-blue-200',
+    'realizada':           'bg-green-100 text-green-700 border-green-200',
+    'cancelada':           'bg-red-100 text-red-600 border-red-200',
+    'cancelada_aluno':     'bg-orange-100 text-orange-700 border-orange-200',
+    'cancelada_professor': 'bg-red-100 text-red-600 border-red-200',
+    'remarcada':           'bg-yellow-100 text-yellow-700 border-yellow-200',
+} %}
+{% set status_dot = {
+    'agendada':            'bg-blue-500',
+    'realizada':           'bg-green-500',
+    'cancelada':           'bg-red-400',
+    'cancelada_aluno':     'bg-orange-400',
+    'cancelada_professor': 'bg-red-400',
+    'remarcada':           'bg-yellow-400',
+} %}
+
+{% block page_header %}
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
+    <div>
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 tracking-tight">Agenda</h1>
+        <div class="flex items-center gap-3 mt-1 text-gray-500">
+            <span>{{ nomes_meses[mes] }} {{ ano }}</span>
+            <div class="flex items-center gap-1 bg-white rounded-lg shadow-sm border border-gray-100 p-0.5">
+                <a href="{{ url_for('agenda.index', ano=anterior[0], mes=anterior[1]) }}" class="p-1 hover:bg-gray-100 rounded-md transition-colors"><i data-lucide="chevron-left" class="w-4 h-4"></i></a>
+                <a href="{{ url_for('agenda.index', ano=hoje.year, mes=hoje.month) }}" class="px-2 py-1 text-xs font-bold hover:bg-gray-100 rounded-md transition-colors">Hoje</a>
+                <a href="{{ url_for('agenda.index', ano=proximo[0], mes=proximo[1]) }}" class="p-1 hover:bg-gray-100 rounded-md transition-colors"><i data-lucide="chevron-right" class="w-4 h-4"></i></a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="flex flex-wrap gap-2">
+        <form method="POST" action="{{ url_for('agenda.gerar_mes') }}" class="hidden sm:block">
+            <input type="hidden" name="ano" value="{{ ano }}"><input type="hidden" name="mes" value="{{ mes }}">
+            <button type="submit" class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all text-sm shadow-sm focus:ring-2 focus:ring-primary/50">
+                <i data-lucide="refresh-cw" class="w-4 h-4 text-primary"></i> Gerar Aulas Fixas
+            </button>
+        </form>
+        <a href="{{ url_for('agenda.feriados') }}" class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all text-sm shadow-sm">
+            <i data-lucide="sun" class="w-4 h-4 text-yellow-500"></i> <span class="hidden sm:inline">Feriados</span>
+        </a>
+        <button @click="$dispatch('open-nova-aula')" class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primaryHover transition-all text-sm shadow-sm focus:ring-2 focus:ring-primary/50">
+            <i data-lucide="plus" class="w-4 h-4"></i> Nova Aula
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div x-data="{
+    currentTab: '{{ 'dia' if data_selecionada else 'mes' }}',
+    novaAulaOpen: false, cancelarOpen: false, reagendarOpen: false, aulaAtiva: null,
+    init() { window.addEventListener('open-nova-aula', () => this.novaAulaOpen = true); },
+    abrirCancelar(aula) { this.aulaAtiva = aula; this.cancelarOpen = true; },
+    abrirReagendar(aula) { this.aulaAtiva = aula; this.reagendarOpen = true; }
+}" class="pb-24 md:pb-6">
+
+    <!-- Tabs Navigation -->
+    <div class="flex overflow-x-auto no-scrollbar bg-white rounded-2xl shadow-sm border border-gray-100 mb-6 p-1.5 gap-1">
+        <button @click="currentTab = 'mes'; window.history.replaceState({}, '', '{{ url_for('agenda.index', ano=ano, mes=mes) }}');" 
+                :class="currentTab === 'mes' ? 'bg-primaryLight text-primary font-bold shadow-sm' : 'text-gray-500 font-semibold hover:bg-gray-50'"
+                class="flex-1 min-w-[100px] px-4 py-3 text-sm rounded-xl transition-all flex items-center justify-center gap-2">
+            <i data-lucide="calendar" class="w-4 h-4"></i> Mensal
+        </button>
+        <button @click="currentTab = 'dia'" 
+                :class="currentTab === 'dia' ? 'bg-primaryLight text-primary font-bold shadow-sm' : 'text-gray-500 font-semibold hover:bg-gray-50'"
+                class="flex-1 min-w-[100px] px-4 py-3 text-sm rounded-xl transition-all flex items-center justify-center gap-2">
+            <i data-lucide="calendar-days" class="w-4 h-4"></i> Diária
+        </button>
+        <button @click="currentTab = 'semana'" 
+                :class="currentTab === 'semana' ? 'bg-primaryLight text-primary font-bold shadow-sm' : 'text-gray-500 font-semibold hover:bg-gray-50'"
+                class="flex-1 min-w-[100px] px-4 py-3 text-sm rounded-xl transition-all flex items-center justify-center gap-2">
+            <i data-lucide="layout-list" class="w-4 h-4"></i> Semanal
+        </button>
+    </div>
+
+    <!-- Visão: Mensal -->
+    <div x-cloak x-show="currentTab === 'mes'" x-transition:enter="transition ease-out duration-300 transform" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-4">
+            <div class="grid grid-cols-7 border-b border-gray-100">
+                {% for d in dias_header %}
+                <div class="py-3 text-center text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wide {% if loop.index >= 6 %}text-orange-400{% endif %}">{{ d }}</div>
+                {% endfor %}
+            </div>
+            {% for semana in semanas %}
+            <div class="grid grid-cols-7 {% if not loop.last %}border-b border-gray-50{% endif %}">
+                {% for dia in semana %}
+                {% if dia == 0 %}
+                <div class="min-h-[100px] sm:min-h-[150px] bg-gray-50/40 border-r border-gray-50 last:border-r-0"></div>
+                {% else %}
+                    {% set data_str = "%04d-%02d-%02d"|format(ano, mes, dia) %}
+                    {% set e_hoje = (hoje.year == ano and hoje.month == mes and hoje.day == dia) %}
+                    {% set aulas_dia_mes = por_dia.get(data_str, []) %}
+                <a href="{{ url_for('agenda.index', ano=ano, mes=mes, data=data_str) }}"
+                   @click.prevent="currentTab = 'dia'; window.location.href = '{{ url_for('agenda.index', ano=ano, mes=mes, data=data_str) }}'"
+                   class="min-h-[100px] sm:min-h-[150px] p-1.5 sm:p-2 border-r border-gray-50 last:border-r-0 flex flex-col transition-all hover:bg-primaryLight/30 active:bg-primaryLight relative {% if data_str in feriados_set %}bg-orange-50/60{% elif loop.index >= 6 %}bg-orange-50/30{% endif %}">
+                    <div class="flex justify-between items-start mb-1">
+                        <span class="text-xs sm:text-sm font-bold w-6 h-6 flex items-center justify-center rounded-full {% if e_hoje %}bg-primary text-white{% else %}text-gray-700{% endif %}">{{ dia }}</span>
+                        {% if data_str in feriados_set %}<span class="text-[10px]">🏖</span>{% endif %}
+                    </div>
+                    
+                    <!-- Desktop: Text tags -->
+                    <div class="flex-1 hidden sm:flex flex-col gap-0.5 overflow-hidden">
+                        {% for aula in aulas_dia_mes[:4] %}
+                        <div class="text-[10px] sm:text-xs font-bold px-1 py-0.5 rounded truncate border leading-tight {{ status_cores.get(aula.status, 'bg-gray-100') }}">{{ aula.data_hora[11:16] }} {{ aula.alunos.nome[:12] if aula.alunos else '?' }}</div>
+                        {% endfor %}
+                        {% if aulas_dia_mes|length > 4 %}<div class="text-[10px] text-gray-400 font-bold pl-1">+{{ aulas_dia_mes|length - 4 }}</div>{% endif %}
+                    </div>
+                    
+                    <!-- Mobile: Dots -->
+                    <div class="flex sm:hidden flex-wrap gap-1 mt-auto">
+                        {% for aula in aulas_dia_mes[:5] %}
+                        <div class="w-2 h-2 rounded-full {{ status_dot.get(aula.status, 'bg-gray-300') }} shadow-sm"></div>
+                        {% endfor %}
+                        {% if aulas_dia_mes|length > 5 %}<div class="w-1.5 h-1.5 rounded-full bg-gray-300"></div>{% endif %}
+                    </div>
+                </a>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Legenda -->
+        <div class="flex flex-wrap gap-2 justify-center sm:justify-start">
+            {% for status, (label, _) in status_labels.items() %}
+            <div class="flex items-center gap-1.5 text-xs font-semibold text-gray-600 bg-white px-2 py-1 rounded-lg border border-gray-100">
+                <div class="w-2.5 h-2.5 rounded-full {{ status_dot.get(status, 'bg-gray-300') }}"></div> {{ label }}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Visão: Diária -->
+    <div x-cloak x-show="currentTab === 'dia'" x-transition:enter="transition ease-out duration-300 transform" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+        
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-6">
+            <div class="px-5 py-6 border-b border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-gray-50/50">
+                <div class="flex flex-col items-center sm:items-start">
+                    <h3 class="font-black text-2xl text-primary flex items-center gap-2">
+                        <i data-lucide="calendar" class="w-6 h-6"></i>
+                        {{ data_selecionada.strftime('%d/%m/%Y') if data_selecionada else hoje.strftime('%d/%m/%Y') }}
+                    </h3>
+                    <p class="text-sm text-gray-500 font-semibold mt-1">{{ aulas_dia|length if data_selecionada else 0 }} aula(s) programadas</p>
+                </div>
+                
+                <!-- Quick Date Selector para o Dia -->
+                <form method="GET" action="{{ url_for('agenda.index') }}" class="flex gap-2 w-full sm:w-auto">
+                    <input type="hidden" name="ano" value="{{ ano }}">
+                    <input type="hidden" name="mes" value="{{ mes }}">
+                    <input type="date" name="data" value="{{ data_selecionada.isoformat() if data_selecionada else hoje.isoformat() }}" 
+                           class="flex-1 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/50">
+                    <button type="submit" class="p-2.5 bg-primaryLight text-primary rounded-xl hover:bg-primary/20 transition-colors">
+                        <i data-lucide="search" class="w-5 h-5"></i>
+                    </button>
+                </form>
+            </div>
+
+            {% if data_selecionada and aulas_dia %}
+            <div class="divide-y divide-gray-50">
+                {% for aula in aulas_dia %}
+                <div class="p-4 sm:p-6 hover:bg-gray-50 flex flex-col gap-4 sm:flex-row sm:items-center justify-between group transition-colors">
+                    
+                    <div class="flex items-start sm:items-center gap-4">
+                        <!-- Time Ribbon -->
+                        <div class="flex flex-col items-center justify-center p-3 rounded-2xl bg-gray-100 min-w-[80px] border border-gray-200 shadow-inner">
+                            <span class="text-xl font-black text-gray-800">{{ aula.data_hora[11:16] }}</span>
+                            <span class="text-[10px] font-bold text-gray-500 uppercase">{{ aula.duracao_min }} min</span>
+                        </div>
+                        
+                        <div class="flex-1">
+                            <h4 class="text-lg font-bold text-gray-800">
+                                {% if aula.alunos %}
+                                <a href="{{ url_for('alunos.ficha', aluno_id=aula.alunos.id) }}" class="hover:text-primary transition-colors flex items-center gap-1.5">
+                                    {{ aula.alunos.nome }} <i data-lucide="external-link" class="w-3.5 h-3.5 text-gray-400"></i>
+                                </a>
+                                {% else %}
+                                Aluno Excluído
+                                {% endif %}
+                            </h4>
+                            
+                            <div class="flex flex-wrap items-center gap-2 mt-2">
+                                <span class="text-xs font-bold px-2.5 py-1 rounded-full border {{ status_cores.get(aula.status, 'bg-gray-100') }} flex items-center gap-1">
+                                    <div class="w-1.5 h-1.5 rounded-full {{ status_dot.get(aula.status, 'bg-gray-400') }}"></div>
+                                    {{ status_labels.get(aula.status, (aula.status,))[0] }}
+                                </span>
+                                
+                                {% if aula.motivo_cancelamento %}
+                                <span class="text-xs text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full border border-gray-200 truncate max-w-[200px]" title="{{ aula.motivo_cancelamento }}">
+                                    Motivo: {{ aula.motivo_cancelamento }}
+                                </span>
+                                {% endif %}
+                                {% if aula.observacoes %}
+                                <span class="text-[10px] text-yellow-600 bg-yellow-50 px-2 border border-yellow-200 rounded-md"><i data-lucide="message-square" class="w-3 h-3 inline"></i> Obs</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botões de Ação (Grandes e Mobile-first) -->
+                    {% if aula.status == 'agendada' %}
+                    <div class="flex flex-row sm:flex-col lg:flex-row gap-2 w-full sm:w-auto mt-2 sm:mt-0 pt-3 sm:pt-0 border-t border-gray-100 sm:border-0">
+                        <form method="POST" action="{{ url_for('agenda.realizada', aula_id=aula.id) }}" class="flex-1 sm:flex-none">
+                            <button type="submit" class="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-green-500 hover:bg-green-600 text-white font-bold shadow-sm transition-all focus:ring-4 focus:ring-green-500/30">
+                                <i data-lucide="check-circle" class="w-5 h-5"></i> <span class="sm:hidden lg:inline">Realizada</span>
+                            </button>
+                        </form>
+                        
+                        <div class="flex gap-2 flex-1 sm:flex-none">
+                            <button @click="abrirReagendar({ id: '{{ aula.id }}', nome: '{{ aula.alunos.nome if aula.alunos else '' }}', hora: '{{ aula.data_hora[:16] }}' })"
+                                    class="flex-1 px-4 py-3 bg-blue-50 text-blue-600 rounded-xl font-bold border border-blue-200 hover:bg-blue-100 transition-colors flex items-center justify-center gap-1">
+                                <i data-lucide="calendar-sync" class="w-5 h-5"></i>
+                            </button>
+                            <button @click="abrirCancelar({ id: '{{ aula.id }}', nome: '{{ aula.alunos.nome if aula.alunos else '' }}', hora: '{{ aula.data_hora[11:16] }}' })"
+                                    class="flex-1 px-4 py-3 bg-red-50 text-red-500 rounded-xl font-bold border border-red-200 hover:bg-red-100 transition-colors flex items-center justify-center gap-1">
+                                <i data-lucide="x-circle" class="w-5 h-5"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% elif aula.status == 'realizada' %}
+                    <div class="flex flex-row sm:flex-col lg:flex-row gap-2 w-full sm:w-auto mt-2 sm:mt-0 pt-3 sm:pt-0 border-t border-gray-100 sm:border-0">
+                        <a href="{{ url_for('registros.novo', aula_id=aula.id, auto=1) }}" class="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-primary hover:bg-primaryHover text-white font-bold shadow-sm transition-all focus:ring-4 focus:ring-primaryLight">
+                            <i data-lucide="file-text" class="w-5 h-5"></i> <span class="sm:hidden lg:inline">Ver Registro</span>
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="p-12 text-center bg-white flex flex-col items-center justify-center">
+                <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4 border border-dashed border-gray-200">
+                    <i data-lucide="calendar-check-2" class="w-10 h-10 text-gray-300"></i>
+                </div>
+                <h4 class="text-xl font-bold text-gray-800 mb-2">Dia livre!</h4>
+                <p class="text-gray-500 mb-6">Nenhuma aula agendada para {{ data_selecionada.strftime('%d/%m/%Y') if data_selecionada else 'este dia' }}.</p>
+                <button @click="novaAulaOpen = true; const input = document.querySelector('input[name=data_hora]'); if(input && '{{ data_selecionada.isoformat() if data_selecionada else '' }}') { const v = '{{ data_selecionada.isoformat() if data_selecionada else '' }}T08:00'; input.value = v; if(input._flatpickr) input._flatpickr.setDate(v); }" class="px-6 py-3 bg-primaryLight text-primary font-bold rounded-xl hover:bg-primary/20 transition-all border border-primary/20 flex items-center gap-2">
+                    <i data-lucide="plus" class="w-4 h-4"></i> Agendar Aula Aqui
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Visão: Semanal (Próximos 7 dias com base na data selecionada ou hoje) -->
+    <div x-cloak x-show="currentTab === 'semana'" x-transition:enter="transition ease-out duration-300 transform" x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-6 p-4 sm:p-6">
+            <h3 class="font-black text-xl text-gray-800 mb-6 flex items-center gap-2 border-b border-gray-100 pb-4">
+                <i data-lucide="calendar-range" class="w-5 h-5 text-primary"></i> 
+                Resumo da Semana
+            </h3>
+            
+            <div class="relative pl-4 sm:pl-8 border-l-2 border-gray-100 space-y-8">
+                {% set data_base = data_selecionada if data_selecionada else hoje %}
+                <!-- Gambiarra simples em Jinja para pegar 7 dias a partir do dia selecionado -->
+                {% set found_any = false %}
+                {% for offset in range(7) %}
+                    {% set cur_date = data_base + timedelta(days=offset) %}
+                    {% set cur_date_str = cur_date.strftime('%Y-%m-%d') %}
+                    {% set aulas_cur = por_dia.get(cur_date_str, []) %}
+                    
+                    {% if aulas_cur or offset == 0 %}
+                    <div class="relative">
+                        <!-- Ponto na timeline -->
+                        <div class="absolute -left-[21px] sm:-left-[37px] w-4 h-4 rounded-full border-4 border-white {% if cur_date_str == hoje.strftime('%Y-%m-%d') %}bg-primary{% else %}bg-gray-300{% endif %} shadow-sm top-1"></div>
+                        
+                        <h4 class="font-bold text-gray-700 text-sm mb-3 flex items-center gap-2">
+                            {{ cur_date.strftime('%d/%m') }} - {{ dias_header[cur_date.weekday()] }}
+                            {% if cur_date_str == hoje.strftime('%Y-%m-%d') %}
+                            <span class="text-[10px] bg-primaryLight text-primary px-2 py-0.5 rounded-full">Hoje</span>
+                            {% endif %}
+                        </h4>
+                        
+                        {% if not aulas_cur %}
+                            <p class="text-sm text-gray-400 font-semibold mb-4 bg-gray-50 rounded-xl p-3 border border-gray-100 border-dashed">Sem aulas programadas para este dia.</p>
+                        {% else %}
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                            {% for aula in aulas_cur %}
+                                <div class="bg-white border rounded-xl p-3 shadow-sm hover:border-primary/50 transition-colors {{ status_cores.get(aula.status, 'border-gray-200') }}">
+                                    <div class="flex justify-between items-start mb-2">
+                                        <span class="font-black text-gray-800">{{ aula.data_hora[11:16] }}</span>
+                                        <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full border {{ status_cores.get(aula.status, '') }}">{{ status_labels.get(aula.status, (aula.status,))[0] }}</span>
+                                    </div>
+                                    <p class="font-bold text-gray-700 text-sm truncate">{{ aula.alunos.nome if aula.alunos else '?' }}</p>
+                                    <p class="text-xs text-gray-500 font-medium">{{ aula.duracao_min }} min</p>
+                                </div>
+                            {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- MODAIS SÃO OS MESMOS DO CÓDIGO ANTERIOR, MAS REDUZIDOS AQUI PARA ECONOMIZAR ESPAÇO -->
+    <!-- Nova Aula Modal -->
+    <div x-cloak x-show="novaAulaOpen" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" x-transition.opacity>
+        <div class="absolute inset-0 bg-gray-900/50 backdrop-blur-sm" @click="novaAulaOpen = false"></div>
+        <div class="relative bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full max-w-md overflow-hidden z-10" x-transition.translate.y>
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50">
+                <h3 class="font-bold text-gray-800 text-lg flex items-center gap-2"><i data-lucide="plus-circle" class="w-5 h-5 text-primary"></i> Nova Aula</h3>
+                <button @click="novaAulaOpen = false" class="p-2 rounded-full bg-white border border-gray-200 text-gray-400 hover:text-gray-700"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>
+            <form method="POST" action="{{ url_for('agenda.nova_aula') }}" class="p-6 space-y-5">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1.5">Aluno</label>
+                    <select name="aluno_id" required class="w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/50 text-base bg-white">
+                        <option value="">Selecione...</option>{% for aluno in alunos %}<option value="{{ aluno.id }}">{{ aluno.nome }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1.5">Data e Horário</label>
+                    <input type="text" x-flatpickr="{enableTime: true, dateFormat: 'Y-m-d\\TH:i'}" name="data_hora" required value="{{ data_selecionada.isoformat() + 'T08:00' if data_selecionada else '' }}" class="w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/50 text-base bg-white">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1.5">Duração (min)</label>
+                        <input type="number" name="duracao_min" value="60" min="15" step="15" class="w-full px-4 py-3.5 rounded-xl border border-gray-200 text-center text-base font-bold bg-white">
+                    </div>
+                    <div class="flex items-end"><button type="submit" class="w-full py-3.5 bg-primary text-white font-bold rounded-xl active:scale-95 transition-transform">Agendar</button></div>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1.5">Observações</label>
+                    <textarea name="observacoes" rows="2" class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm bg-white"></textarea>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modais de Cancelar e Reagendar - Simplificados -->
+    <div x-cloak x-show="cancelarOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm" x-transition.opacity>
+        <div class="bg-white rounded-2xl w-full max-w-sm p-6 relative" @click.away="cancelarOpen = false">
+            <h3 class="font-bold text-xl mb-4 text-red-600 flex items-center gap-2"><i data-lucide="alert-triangle"></i> Cancelar Aula</h3>
+            <template x-if="aulaAtiva">
+                <form method="POST" :action="`/agenda/aula/${aulaAtiva.id}/cancelar`" class="space-y-4">
+                    <p class="text-sm">Cancelar aula de <strong x-text="aulaAtiva.nome"></strong>?</p>
+                    <select name="tipo" class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm"><option value="cancelada_professor">Prof. Cancelou</option><option value="cancelada_aluno">Aluno Cancelou</option></select>
+                    <input type="text" name="motivo" placeholder="Motivo (opcional)" class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm">
+                    <div class="flex gap-2 pt-2"><button type="button" @click="cancelarOpen = false" class="flex-1 py-3 border border-gray-200 rounded-xl font-bold">Voltar</button><button type="submit" class="flex-1 py-3 bg-red-500 text-white rounded-xl font-bold shadow-md shadow-red-500/30">Confirmar</button></div>
+                </form>
+            </template>
+        </div>
+    </div>
+
+    <div x-cloak x-show="reagendarOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm" x-transition.opacity>
+        <div class="bg-white rounded-2xl w-full max-w-sm p-6 relative" @click.away="reagendarOpen = false">
+            <h3 class="font-bold text-xl mb-4 text-blue-600 flex items-center gap-2"><i data-lucide="calendar-sync"></i> Reagendar</h3>
+            <template x-if="aulaAtiva">
+                <form method="POST" :action="`/agenda/aula/${aulaAtiva.id}/reagendar`" class="space-y-4">
+                    <p class="text-sm">Remarcar aula de <strong x-text="aulaAtiva.nome"></strong></p>
+                    <input type="text" x-flatpickr="{enableTime: true, dateFormat: 'Y-m-d\\TH:i'}" name="nova_data_hora" required :value="aulaAtiva.hora" class="w-full px-4 py-3 rounded-xl border border-gray-200 text-base">
+                    <input type="text" name="motivo" placeholder="Motivo (opcional)" class="w-full px-4 py-3 rounded-xl border border-gray-200 text-base">
+                    <div class="flex gap-2 pt-2"><button type="button" @click="reagendarOpen = false" class="flex-1 py-3 border border-gray-200 rounded-xl font-bold">Voltar</button><button type="submit" class="flex-1 py-3 bg-primary text-white rounded-xl font-bold shadow-md shadow-primary/30">Confirmar</button></div>
+                </form>
+            </template>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

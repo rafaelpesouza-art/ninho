@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+{% block title %}Devolutiva — {{ aluno.nome }}{% endblock %}
+
+{% block page_header %}
+<div class="flex items-center gap-3">
+    <a href="{{ url_for('comunicacao.index') }}" class="p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors">
+        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+    </a>
+    <div>
+        <h1 class="text-xl font-black text-gray-800 leading-none">Devolutiva Semanal</h1>
+        <p class="text-gray-500 text-sm font-semibold mt-0.5">{{ aluno.nome }}</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto pb-24 md:pb-6"
+     x-data="devolutivaData()">
+
+    <!-- Filtro de período -->
+    <form method="GET" action="{{ url_for('comunicacao.devolutiva') }}"
+          class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6">
+        <input type="hidden" name="aluno_id" value="{{ aluno.id }}">
+        <div class="flex flex-wrap items-end gap-3">
+            <i data-lucide="calendar" class="w-4 h-4 text-gray-400 shrink-0 mb-2.5"></i>
+            <div>
+                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Início</label>
+                <input type="date" name="data_inicio" value="{{ periodo_inicio }}" required
+                       class="px-3 py-3 rounded-xl border border-gray-200 text-base font-semibold bg-gray-50 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 focus:bg-white transition-colors">
+            </div>
+            <div>
+                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Fim</label>
+                <input type="date" name="data_fim" value="{{ periodo_fim }}" required
+                       class="px-3 py-3 rounded-xl border border-gray-200 text-base font-semibold bg-gray-50 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 focus:bg-white transition-colors">
+            </div>
+            <button type="submit"
+                    class="flex items-center gap-1.5 px-4 py-3 bg-primary hover:bg-primaryHover text-white rounded-xl text-sm font-bold transition-colors shadow-sm shadow-primary/20 mb-0.5">
+                <i data-lucide="search" class="w-4 h-4"></i>
+                Buscar
+            </button>
+        </div>
+    </form>
+
+    <div class="grid lg:grid-cols-2 gap-6">
+
+        {# ---- COLUNA 1: Editor da Devolutiva ---- #}
+        <div class="space-y-6">
+            
+            <!-- Registros e Fotos do Período -->
+            <div>
+                <h2 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">
+                    {{ registros | length }} sessão(ões) no período
+                </h2>
+                {% if registros %}
+                <div class="space-y-4">
+                    {% for r in registros %}
+                    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                        <div class="flex items-center gap-3 p-4 border-b border-gray-50 bg-gray-50/50">
+                            <div class="w-10 h-10 rounded-xl bg-primaryLight flex flex-col items-center justify-center shrink-0">
+                                <span class="text-xs font-black text-primary leading-none">
+                                    {% if r.data_hora %}{{ r.data_hora[8:10] }}/{{ r.data_hora[5:7] }}{% else %}—{% endif %}
+                                </span>
+                            </div>
+                            <div class="flex-1">
+                                <p class="font-bold text-sm text-gray-800">
+                                    {% if r.data_hora %}{{ r.data_hora[11:16] }}{% endif %}
+                                    {% if r.duracao_min %} · {{ r.duracao_min }}min{% endif %}
+                                </p>
+                                {% if r.humor %}
+                                <p class="text-xs text-gray-500 font-semibold">{{ humor_labels.get(r.humor, r.humor) }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="p-4 space-y-3 text-sm">
+                            {% if r.descricao %}
+                            <div><span class="font-bold text-gray-500 text-xs uppercase tracking-wider block mb-0.5">Atividades</span>
+                                <p class="text-gray-700 leading-relaxed">{{ r.descricao }}</p></div>
+                            {% endif %}
+                            {% if r.evolucao %}
+                            <div><span class="font-bold text-gray-500 text-xs uppercase tracking-wider block mb-0.5">Evolução</span>
+                                <p class="text-gray-700 leading-relaxed">{{ r.evolucao }}</p></div>
+                            {% endif %}
+                            
+                            <!-- Seleção de Fotos -->
+                            {% if r.fotos %}
+                            <div class="pt-2 border-t border-gray-50">
+                                <span class="font-bold text-gray-500 text-xs uppercase tracking-wider block mb-2">📸 Selecione as fotos para os pais</span>
+                                <div class="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                                    {% for foto in r.fotos %}
+                                    <div class="relative cursor-pointer group" @click="toggleFoto('{{ foto.storage_path }}')">
+                                        <img src="{{ foto.url }}" alt="{{ foto.legenda or '' }}"
+                                             class="w-full aspect-square object-cover rounded-xl transition-all border-2"
+                                             :class="fotosSelecionadas.includes('{{ foto.storage_path }}') ? 'border-primary shadow-sm scale-[0.98]' : 'border-transparent hover:border-primary/30'">
+                                        
+                                        <!-- Checkmark icon -->
+                                        <div class="absolute inset-0 bg-primary/20 rounded-xl flex items-center justify-center transition-opacity"
+                                             :class="fotosSelecionadas.includes('{{ foto.storage_path }}') ? 'opacity-100' : 'opacity-0 hover:opacity-100 group-hover:opacity-100'">
+                                            <div class="w-6 h-6 bg-primary text-white rounded-full flex items-center justify-center shadow-md scale-transition"
+                                                 :class="fotosSelecionadas.includes('{{ foto.storage_path }}') ? 'scale-100' : 'scale-0'">
+                                                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center">
+                    <i data-lucide="calendar-x" class="w-10 h-10 text-gray-200 mx-auto mb-3"></i>
+                    <p class="font-bold text-gray-500">Nenhuma sessão registrada neste período.</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Campos Extras -->
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div class="bg-gray-50/50 px-5 py-3 border-b border-gray-100">
+                    <h3 class="font-bold text-sm text-gray-700 flex items-center gap-2"><i data-lucide="message-square" class="w-4 h-4 text-primary"></i> Mensagem Personalizada</h3>
+                </div>
+                <div class="p-5 space-y-5">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Comentário Geral sobre a semana</label>
+                        <textarea x-model="comentarioGeral" rows="3" placeholder="Como o aluno esteve no geral? Alguma observação especial?"
+                                  class="w-full text-base text-gray-700 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 resize-none bg-gray-50 focus:bg-white transition-colors"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-primary uppercase tracking-wider mb-2 flex items-center gap-1.5"><i data-lucide="target" class="w-3.5 h-3.5"></i> Direcionamentos para Casa</label>
+                        <textarea x-model="direcionamentos" rows="3" placeholder="Atividades ou tarefas para fazer em casa com a família..."
+                                  class="w-full text-base text-gray-700 border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 resize-none bg-gray-50 focus:bg-white transition-colors"></textarea>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        {# ---- COLUNA 2: Preview do WhatsApp ---- #}
+        <div class="relative">
+            <div class="sticky top-6 space-y-4">
+                <h2 class="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center justify-between">
+                    Preview do WhatsApp
+                    <span class="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-bold">Auto-gerado</span>
+                </h2>
+
+                <!-- Tela de celular fake para preview -->
+                <div class="bg-[#efeae2] rounded-3xl border-[8px] border-white shadow-xl overflow-hidden relative" style="height: 600px; display: flex; flex-direction: column;">
+                    <!-- App Header -->
+                    <div class="bg-[#00a884] text-white px-4 py-3 flex items-center gap-3 shrink-0 shadow-sm z-10">
+                        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                        <div class="w-8 h-8 rounded-full bg-white/20 flex flex-col items-center justify-center overflow-hidden"><i data-lucide="user" class="w-5 h-5"></i></div>
+                        <div class="flex-1 font-bold text-sm leading-tight">Responsável pelo {{ aluno.nome.split()[0] }}</div>
+                    </div>
+                    
+                    <!-- Chat Area -->
+                    <div class="flex-1 overflow-y-auto p-4 flex flex-col no-scrollbar" style="background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-size: cover; background-blend-mode: overlay; background-color: rgba(255,255,255,0.7);">
+                        
+                        <div class="bg-white rounded-2xl rounded-tr-none p-3.5 shadow-sm text-[13.5px] text-gray-800 self-end max-w-[90%] leading-relaxed border border-gray-100">
+                            <!-- Injeção do pre-texto base do sistema via Alpine -->
+                            <div class="whitespace-pre-wrap font-sans" x-html="renderWhatsAppText()"></div>
+                            
+                            <div class="flex items-center justify-end gap-1 mt-1 text-[10px] text-gray-400">
+                                <span>Agora</span> <i data-lucide="check-check" class="w-3.5 h-3.5 text-[#53bdeb]"></i>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Botões de ação -->
+                <div class="space-y-3 pt-2">
+                    <button @click="copiar()"
+                            class="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-2xl font-bold text-sm transition-all shadow-md"
+                            :class="copiado ? 'bg-green-500 text-white shadow-green-500/20' : 'bg-green-500 text-white hover:bg-green-600 shadow-green-500/20'">
+                        <i :data-lucide="copiado ? 'check' : 'copy'" class="w-5 h-5"></i>
+                        <span x-text="copiado ? 'TEXTO COPIADO!' : 'COPIAR PARA WHATSAPP'"></span>
+                    </button>
+
+                    {% if registros %}
+                    <form method="POST" action="{{ url_for('comunicacao.devolutiva_salvar') }}">
+                        <input type="hidden" name="aluno_id"       value="{{ aluno.id }}">
+                        <input type="hidden" name="periodo_inicio" value="{{ periodo_inicio }}">
+                        <input type="hidden" name="periodo_fim"    value="{{ periodo_fim }}">
+                        
+                        <!-- Campos injetados -->
+                        <input type="hidden" name="comentario_geral" :value="comentarioGeral">
+                        <input type="hidden" name="direcionamentos"  :value="direcionamentos">
+                        <input type="hidden" name="texto_whatsapp"   :value="rawWhatsAppText()" x-ref="textoHidden">
+                        <input type="hidden" name="fotos_selecionadas" :value="JSON.stringify(fotosSelecionadas)">
+                        
+                        <button type="submit" @click="$refs.textoHidden.value = rawWhatsAppText()"
+                                class="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-2xl font-bold text-sm transition-colors mt-2">
+                            <i data-lucide="save" class="w-4 h-4"></i>
+                            Salvar versão no histórico do sistema
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+document.addEventListener('alpine:init', () => {
+    // Injetamos a raw string gerada originariamente pelo backend do python (com descrições das atividades)
+    // para servirmos como o coração do relatório.
+    const pythonBaseText = {{ texto_gerado | tojson }};
+    const nomeAluno = '{{ aluno.nome }}';
+
+    Alpine.data('devolutivaData', () => ({
+        fotosSelecionadas: [],
+        comentarioGeral: '',
+        direcionamentos: '',
+        copiado: false,
+
+        toggleFoto(path) {
+            if (this.fotosSelecionadas.includes(path)) {
+                this.fotosSelecionadas = this.fotosSelecionadas.filter(p => p !== path);
+            } else {
+                this.fotosSelecionadas.push(path);
+            }
+        },
+
+        rawWhatsAppText() {
+            let parts = [];
+            parts.push(pythonBaseText); // base python text (sessoes, data, atividades)
+            
+            if (this.comentarioGeral.trim()) {
+                parts.push(`*🗣️ Comentário Geral:*\n${this.comentarioGeral}`);
+            }
+            if (this.direcionamentos.trim()) {
+                parts.push(`*🎯 Direcionamentos para Casa:*\n${this.direcionamentos}`);
+            }
+            if (this.fotosSelecionadas.length > 0) {
+                parts.push(`_📷 Selecionamos ${this.fotosSelecionadas.length} foto(s) muito legais desta semana e vou te enviar!_`);
+            }
+            return parts.join('\n\n');
+        },
+
+        renderWhatsAppText() {
+            // Converts whatsapp bold formatting *foo* to <strong>foo</strong> and \n to <br> for HTML preview
+            let txt = this.rawWhatsAppText();
+            txt = txt.replace(/\*(.*?)\*/g, "<strong>$1</strong>");
+            txt = txt.replace(/_(.*?)_/g, "<em>$1</em>");
+            txt = txt.replace(/\n/g, "<br>");
+            return txt;
+        },
+
+        async copiar() {
+            try {
+                await navigator.clipboard.writeText(this.rawWhatsAppText());
+                this.copiado = true;
+                setTimeout(() => { this.copiado = false; lucide.createIcons(); }, 2500);
+            } catch(e) {
+                alert('Não foi possível copiar automaticamente. Selecione e copie o texto manualmente.');
+            }
+        }
+    }));
+});
+</script>
+<style>
+    .scale-transition { transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
+</style>
+{% endblock %}

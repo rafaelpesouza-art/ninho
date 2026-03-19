@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Comunicação — Ninho{% endblock %}
+
+{% block page_header %}
+<div class="flex items-center justify-between">
+    <div>
+        <h1 class="text-2xl font-black text-gray-800 leading-none">Comunicação</h1>
+        <p class="text-gray-500 text-sm font-semibold mt-1">Devolutivas e relatórios por aluno</p>
+    </div>
+    <a href="{{ url_for('comunicacao.historico') }}"
+       class="flex items-center gap-2 text-sm font-bold text-primary hover:text-primaryHover">
+        <i data-lucide="history" class="w-4 h-4"></i> Histórico completo
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-8 pb-24 md:pb-6">
+
+    {# ------------------------------------------------------------------ #}
+    {# ALUNOS                                                               #}
+    {# ------------------------------------------------------------------ #}
+    {% if alunos %}
+    <div x-data="{ busca: '' }">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <h2 class="text-xs font-black text-gray-400 uppercase tracking-widest">Selecionar aluno</h2>
+            <div class="relative w-full sm:w-64">
+                <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                <input type="text" x-model="busca" placeholder="Buscar aluno..." 
+                       class="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors">
+            </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {% for aluno in alunos %}
+            <div x-show="busca === '' || '{{ aluno.nome | lower }}'.includes(busca.toLowerCase())" 
+                 class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-start gap-4 transition-all">
+                <div class="w-12 h-12 rounded-xl bg-primaryLight flex items-center justify-center text-primary font-black text-lg shrink-0">
+                    {{ aluno.nome[0].upper() }}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-bold text-gray-800 truncate">{{ aluno.nome }}</p>
+                    <p class="text-xs text-gray-400 font-semibold mt-0.5 truncate">{{ aluno.responsavel or '—' }}</p>
+                    <div class="flex gap-2 mt-3 flex-wrap">
+                        <a href="{{ url_for('comunicacao.devolutiva', aluno_id=aluno.id) }}"
+                           class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 border border-green-100 rounded-xl text-xs font-bold hover:bg-green-100 transition-colors">
+                            <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+                            Devolutiva
+                        </a>
+                        <a href="{{ url_for('comunicacao.relatorio', aluno_id=aluno.id) }}"
+                           class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primaryLight text-primary border border-primary/10 rounded-xl text-xs font-bold hover:bg-primary/10 transition-colors">
+                            <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                            Relatório
+                        </a>
+                        <a href="{{ url_for('comunicacao.historico', aluno_id=aluno.id) }}"
+                           class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 text-gray-600 border border-gray-100 rounded-xl text-xs font-bold hover:bg-gray-100 transition-colors">
+                            <i data-lucide="history" class="w-3.5 h-3.5"></i>
+                            Histórico
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-12 text-center">
+        <i data-lucide="users" class="w-12 h-12 text-gray-200 mx-auto mb-4"></i>
+        <p class="font-bold text-gray-500">Nenhum aluno cadastrado ainda.</p>
+        <a href="{{ url_for('alunos.novo') }}" class="mt-3 inline-block text-sm text-primary font-bold hover:underline">
+            + Cadastrar aluno
+        </a>
+    </div>
+    {% endif %}
+
+    {# ------------------------------------------------------------------ #}
+    {# ÚLTIMAS COMUNICAÇÕES                                                 #}
+    {# ------------------------------------------------------------------ #}
+    {% if historico_recente %}
+    <div>
+        <h2 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Últimas comunicações</h2>
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-50">
+            {% for item in historico_recente %}
+            <a href="{{ url_for('comunicacao.ver', comm_id=item.id) }}"
+               class="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors">
+                <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                    {% if item.tipo == 'devolutiva' %}bg-green-50 text-green-600{% else %}bg-primaryLight text-primary{% endif %}">
+                    <i data-lucide="{{ 'message-square' if item.tipo == 'devolutiva' else 'file-text' }}" class="w-4 h-4"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-bold text-sm text-gray-800 truncate">{{ item.titulo }}</p>
+                    <p class="text-xs text-gray-400 mt-0.5">
+                        {{ (item.alunos or {}).get('nome', '—') }} ·
+                        {{ item.criado_em[:10] | replace('-', '/') if item.criado_em else '—' }}
+                    </p>
+                </div>
+                <span class="text-[10px] font-bold px-2 py-1 rounded-lg uppercase tracking-wider shrink-0
+                    {% if item.tipo == 'devolutiva' %}bg-green-50 text-green-700{% else %}bg-primaryLight text-primary{% endif %}">
+                    {{ tipo_labels.get(item.tipo, item.tipo) }}
+                </span>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

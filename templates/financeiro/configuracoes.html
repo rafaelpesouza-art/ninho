@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Configurações - Ninho{% endblock %}
+
+{% block page_header %}
+<div class="flex items-center gap-3 mb-6">
+    <a href="{{ url_for('financeiro.index') }}"
+       class="p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors">
+       <i data-lucide="arrow-left" class="w-6 h-6"></i>
+    </a>
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 tracking-tight">Preferências Financeiras</h1>
+</div>
+{% endblock %}
+
+{% block content %}
+<form method="POST" action="{{ url_for('financeiro.configuracoes') }}" class="max-w-2xl mx-auto space-y-6 pb-24 md:pb-6">
+
+    <!-- Caixa Principal de Infos -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        
+        <div class="bg-primaryLight/30 px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+            <i data-lucide="wallet" class="w-5 h-5 text-primary"></i>
+            <h3 class="font-bold text-gray-800">Dados para Cobrança</h3>
+        </div>
+        
+        <div class="p-6 space-y-5">
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1.5">Nome do Recebedor</label>
+                <input type="text" name="nome_recebedor" value="{{ config.nome_recebedor or '' }}"
+                       placeholder="Ex: Suellen Siqueira"
+                       class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/20 focus:border-primary text-base bg-gray-50 focus:bg-white transition-all">
+                <p class="text-xs text-gray-400 mt-1">Este nome aparecerá no cabeçalho do recibo de WhatsApp.</p>
+            </div>
+
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1.5">Chave PIX Principal</label>
+                <input type="text" name="chave_pix" value="{{ config.chave_pix or '' }}"
+                       placeholder="Telefone, CPF, E-mail ou Aleatória"
+                       class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/20 focus:border-primary text-base bg-gray-50 focus:bg-white transition-all font-mono">
+            </div>
+
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1.5">Dia Padrão de Vencimento</label>
+                <div class="relative">
+                    <select name="dia_vencimento" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/20 focus:border-primary text-base bg-gray-50 focus:bg-white transition-all appearance-none pr-10">
+                        {% for d in range(1, 29) %}
+                        <option value="{{ d }}" {% if config.dia_vencimento == d or (not config.dia_vencimento and d == 10) %}selected{% endif %}>
+                            Dia {{ d }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-gray-400">
+                        <i data-lucide="chevron-down" class="w-5 h-5"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1.5">Mensagem Extra de Rodapé (Opcional)</label>
+                <textarea name="observacoes" rows="3"
+                          placeholder="Ex: Pagamentos após o vencimento sofrem ajuste..."
+                          class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/20 focus:border-primary text-base bg-gray-50 focus:bg-white transition-all">{{ config.observacoes or '' }}</textarea>
+            </div>
+        </div>
+        
+    </div>
+
+    <!-- Botão Fixo Mobile / Normal Desktop -->
+    <div class="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] md:static md:bg-transparent md:border-none md:shadow-none md:p-0 z-20 flex justify-end">
+        <button type="submit"
+                class="w-full md:w-auto px-8 py-3.5 bg-primary hover:bg-primaryHover text-white font-bold rounded-xl shadow-lg shadow-primary/30 transition-transform active:scale-95 flex items-center justify-center gap-2">
+            <i data-lucide="save" class="w-5 h-5"></i>
+            Salvar Preferências
+        </button>
+    </div>
+
+</form>
+{% endblock %}

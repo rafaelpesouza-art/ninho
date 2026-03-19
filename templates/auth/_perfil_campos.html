@@ -1,0 +1,72 @@
+{# Campos compartilhados pelo formulário de perfil (completar + editar) #}
+
+{% macro field(label, name, type="text", required=false, value="", placeholder="", hint="") %}
+<div>
+    <label class="block text-sm font-bold text-gray-700 mb-1.5">
+        {{ label }}{% if required %} <span class="text-red-400">*</span>{% endif %}
+    </label>
+    <input type="{{ type }}" name="{{ name }}"
+           value="{{ value }}"
+           placeholder="{{ placeholder }}"
+           {% if required %}required{% endif %}
+           class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 text-base transition-colors bg-gray-50 focus:bg-white">
+    {% if hint %}
+    <p class="text-xs text-gray-400 mt-1">{{ hint }}</p>
+    {% endif %}
+</div>
+{% endmacro %}
+
+<!-- Nome completo -->
+{{ field("Nome completo", "nome_completo", required=true,
+         value=perfil.get("nome_completo") or "",
+         placeholder="Ex: Maria Fernanda Silva") }}
+
+<!-- Apelido -->
+{{ field("Apelido", "apelido",
+         value=perfil.get("apelido") or "",
+         placeholder="Como prefere ser chamada(o)?",
+         hint="Usado na saudação do dashboard. Deixe em branco para usar o primeiro nome.") }}
+
+<!-- 2 colunas: CPF + Data de nascimento -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    {{ field("CPF", "cpf",
+             value=perfil.get("cpf") or "",
+             placeholder="000.000.000-00") }}
+
+    {{ field("Data de nascimento", "data_nascimento", type="date",
+             value=perfil.get("data_nascimento") or "") }}
+</div>
+
+<!-- 2 colunas: Telefone + Email de contato -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    {{ field("Telefone", "telefone",
+             value=perfil.get("telefone") or "",
+             placeholder="(00) 00000-0000") }}
+
+    {{ field("Email de contato", "email_contato", type="email",
+             value=perfil.get("email_contato") or "",
+             placeholder="email@exemplo.com",
+             hint="Pode ser diferente do email de login.") }}
+</div>
+
+<!-- Personalização Visual -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-gray-100 pt-5 mt-5">
+    <div>
+        <label class="block text-sm font-bold text-gray-700 mb-1.5">Cor principal</label>
+        <div class="flex items-center gap-3">
+            <input type="color" name="cor_primaria"
+                   value="{{ perfil.get('cor_primaria', '#7F77DD') }}"
+                   class="w-12 h-12 p-1 rounded-xl border border-gray-200 cursor-pointer bg-white transition-colors">
+            <span class="text-sm text-gray-500 font-semibold">Cor da sua marca</span>
+        </div>
+    </div>
+
+    <div>
+        <label class="block text-sm font-bold text-gray-700 mb-1.5">
+            Logo do Sistema
+        </label>
+        <input type="file" name="logo_file" accept="image/png, image/jpeg, image/jpg, image/webp"
+               class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 text-base transition-colors bg-gray-50 focus:bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primaryLight file:text-primary hover:file:bg-primary/20 cursor-pointer">
+        <p class="text-xs text-gray-400 mt-1">Imagem que aparecerá no menu. Formatos recomendados: PNG, JPG ou WebP.</p>
+    </div>
+</div>

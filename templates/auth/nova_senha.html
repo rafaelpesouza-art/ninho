@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nova senha — Ninho</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { theme: { extend: { colors: { primary: '#7F77DD', primaryHover: '#6b63cc', primaryLight: '#f3f1ff' }, fontFamily: { sans: ['Nunito', 'sans-serif'] } } } }</script>
+</head>
+<body class="bg-gray-50 font-sans flex items-center justify-center min-h-screen px-4">
+
+<div class="w-full max-w-sm mx-auto py-10">
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8" id="form-card">
+
+        <div class="w-14 h-14 bg-primaryLight rounded-2xl flex items-center justify-center mx-auto mb-5">
+            <svg class="w-7 h-7 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
+            </svg>
+        </div>
+
+        <h1 class="text-xl font-black text-gray-800 text-center mb-1">Criar nova senha</h1>
+        <p class="text-gray-500 text-sm text-center mb-6 font-semibold">Escolha uma senha segura para sua conta.</p>
+
+        <!-- Estado: aguardando token do hash da URL -->
+        <div id="estado-carregando" class="text-center py-4">
+            <div class="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" style="border-width:3px"></div>
+            <p class="text-sm text-gray-500 font-semibold">Verificando link…</p>
+        </div>
+
+        <!-- Estado: link inválido -->
+        <div id="estado-invalido" class="hidden text-center py-2">
+            <p class="text-sm font-bold text-red-600 mb-4">Link inválido ou expirado.</p>
+            <a href="{{ url_for('auth.esqueci_senha') }}"
+               class="inline-block bg-primary text-white font-bold px-6 py-2.5 rounded-xl hover:bg-primaryHover transition-colors text-sm">
+                Solicitar novo link
+            </a>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        <div class="mb-4 px-4 py-3 rounded-xl text-sm font-semibold
+            {% if category == 'danger' %}bg-red-50 text-red-700 border border-red-200
+            {% else %}bg-green-50 text-green-700 border border-green-200{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endwith %}
+
+        <!-- Formulário principal (oculto até o JS extrair os tokens) -->
+        <form id="form-nova-senha" method="POST" action="{{ url_for('auth.nova_senha_post') }}"
+              class="hidden space-y-4">
+
+            <input type="hidden" name="access_token"
+                   id="input-access-token" value="{{ access_token or '' }}">
+            <input type="hidden" name="refresh_token"
+                   id="input-refresh-token" value="{{ refresh_token or '' }}">
+
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1.5">Nova senha</label>
+                <input type="password" name="password" id="input-senha" required minlength="6"
+                       placeholder="Mínimo 6 caracteres"
+                       class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 text-sm bg-gray-50 focus:bg-white transition-colors">
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1.5">Confirmar nova senha</label>
+                <input type="password" name="confirm_password" required minlength="6"
+                       placeholder="Repita a nova senha"
+                       class="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 text-sm bg-gray-50 focus:bg-white transition-colors">
+            </div>
+
+            <button type="submit"
+                    class="w-full bg-primary hover:bg-primaryHover text-white font-bold py-3 rounded-xl transition-colors shadow-md shadow-primary/20">
+                Salvar nova senha
+            </button>
+        </form>
+
+    </div>
+</div>
+
+<script>
+(function () {
+    // Se o servidor já passou os tokens (re-render após erro de validação),
+    // mostra o form direto sem precisar ler o hash.
+    const preloaded = document.getElementById('input-access-token').value;
+    if (preloaded) {
+        document.getElementById('estado-carregando').classList.add('hidden');
+        document.getElementById('form-nova-senha').classList.remove('hidden');
+        document.getElementById('input-senha').focus();
+        return;
+    }
+
+    // Extrai tokens do hash da URL:  #access_token=xxx&refresh_token=yyy&type=recovery
+    function parseHash() {
+        const hash = window.location.hash.slice(1); // remove '#'
+        const params = {};
+        hash.split('&').forEach(function (part) {
+            const [k, v] = part.split('=');
+            if (k) params[decodeURIComponent(k)] = decodeURIComponent(v || '');
+        });
+        return params;
+    }
+
+    const params = parseHash();
+
+    if (params.type === 'recovery' && params.access_token) {
+        document.getElementById('input-access-token').value  = params.access_token;
+        document.getElementById('input-refresh-token').value = params.refresh_token || '';
+        // Limpa o hash da URL para não expor o token no histórico
+        history.replaceState(null, '', window.location.pathname);
+        document.getElementById('estado-carregando').classList.add('hidden');
+        document.getElementById('form-nova-senha').classList.remove('hidden');
+        document.getElementById('input-senha').focus();
+    } else {
+        // Hash ausente ou tipo errado → link inválido
+        document.getElementById('estado-carregando').classList.add('hidden');
+        document.getElementById('estado-invalido').classList.remove('hidden');
+    }
+})();
+</script>
+
+</body>
+</html>

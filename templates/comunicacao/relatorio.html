@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}Relatório — {% if aluno %}{{ aluno.nome }}{% endif %}{% endblock %}
+
+{% block page_header %}
+<div class="flex items-center gap-3">
+    <a href="{{ url_for('comunicacao.index') }}" class="p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors">
+        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+    </a>
+    <div>
+        <h1 class="text-xl font-black text-gray-800 leading-none">Relatório de Evolução</h1>
+        <p class="text-gray-500 text-sm font-semibold mt-0.5">{{ aluno.nome }}</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto pb-24 md:pb-6" x-data="relatorioData()">
+
+    {# ---- STEP 1: escolher período ---- #}
+    <form method="POST" action="{{ url_for('comunicacao.relatorio', aluno_id=aluno.id) }}"
+          class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
+        <input type="hidden" name="aluno_id" value="{{ aluno.id }}">
+        <h2 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">1. Selecione o período</h2>
+        <div class="flex flex-wrap items-end gap-4">
+            <div class="flex-1 min-w-32">
+                <label class="block text-sm font-bold text-gray-700 mb-1.5">Início</label>
+                <input type="date" name="periodo_inicio" required
+                       value="{{ periodo_inicio }}"
+                       class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 text-base bg-gray-50 focus:bg-white transition-colors">
+            </div>
+            <div class="flex-1 min-w-32">
+                <label class="block text-sm font-bold text-gray-700 mb-1.5">Fim</label>
+                <input type="date" name="periodo_fim" required
+                       value="{{ periodo_fim }}"
+                       class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 text-base bg-gray-50 focus:bg-white transition-colors">
+            </div>
+            <button type="submit"
+                    class="px-6 py-3 bg-primary hover:bg-primaryHover text-white rounded-xl font-bold text-[15px] transition-colors shadow-md shadow-primary/20 flex items-center gap-2 whitespace-nowrap">
+                <i data-lucide="search" class="w-4 h-4"></i>
+                Buscar registros
+            </button>
+        </div>
+    </form>
+
+    {% if periodo_inicio and periodo_fim %}
+    <div class="grid lg:grid-cols-5 gap-6">
+
+        {# ---- Registros e Fotos (contexto) ---- #}
+        <div class="lg:col-span-2 space-y-4">
+            <h2 class="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                2. Histórico do período
+                <span class="bg-gray-100 text-gray-500 rounded-full px-2 py-0.5 text-[10px]">{{ registros | length }} sessões</span>
+            </h2>
+
+            {% if registros %}
+            {% for r in registros %}
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden text-sm">
+                <div class="flex items-center gap-3 p-3 border-b border-gray-50 bg-gray-50/50">
+                    <span class="font-black text-primary text-xs">
+                        {% if r.data_hora %}{{ r.data_hora[8:10] }}/{{ r.data_hora[5:7] }}{% endif %}
+                    </span>
+                    {% if r.humor %}
+                    <span class="text-xs text-gray-500 font-semibold">· {{ humor_labels.get(r.humor, r.humor) }}</span>
+                    {% endif %}
+                    {% if r.participacao %}
+                    <span class="text-xs text-yellow-500 ml-auto">{{ participacao_stars.get(r.participacao, '') }}</span>
+                    {% endif %}
+                </div>
+                <div class="p-4 space-y-2">
+                    {% if r.descricao %}
+                    <p class="text-gray-700 text-xs leading-relaxed">
+                        <span class="font-bold text-gray-500 uppercase tracking-wider block mb-0.5">Atividades</span>
+                        {{ r.descricao }}
+                    </p>
+                    {% endif %}
+                    {% if r.evolucao %}
+                    <p class="text-gray-700 text-xs leading-relaxed">
+                        <span class="font-bold text-gray-500 uppercase tracking-wider block mb-0.5">Evolução</span>
+                        {{ r.evolucao }}
+                    </p>
+                    {% endif %}
+                    
+                    <!-- Coleção de Fotos: Selecionável -->
+                    {% if r.fotos %}
+                    <div class="pt-2 border-t border-gray-50 mt-3 pt-3">
+                        <span class="font-bold text-gray-500 text-xs uppercase tracking-wider block mb-2">📸 Incluir fotos no PDF</span>
+                        <div class="grid grid-cols-4 sm:grid-cols-5 gap-2">
+                            {% for foto in r.fotos %}
+                            <div class="relative cursor-pointer group" @click="toggleFoto('{{ foto.storage_path }}')">
+                                <img src="{{ foto.url }}" alt="{{ foto.legenda or '' }}"
+                                     class="w-full aspect-square object-cover rounded-xl transition-all border-2"
+                                     :class="fotosSelecionadas.includes('{{ foto.storage_path }}') ? 'border-primary shadow-sm scale-[0.98]' : 'border-transparent hover:border-primary/30'">
+                                
+                                <div class="absolute inset-0 bg-primary/20 rounded-xl flex items-center justify-center transition-opacity"
+                                     :class="fotosSelecionadas.includes('{{ foto.storage_path }}') ? 'opacity-100' : 'opacity-0 hover:opacity-100 group-hover:opacity-100'">
+                                    <div class="w-6 h-6 bg-primary text-white rounded-full flex items-center justify-center shadow-md scale-transition"
+                                         :class="fotosSelecionadas.includes('{{ foto.storage_path }}') ? 'scale-100' : 'scale-0'">
+                                        <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+
+            {% else %}
+            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
+                <i data-lucide="inbox" class="w-8 h-8 text-gray-200 mx-auto mb-2"></i>
+                <p class="font-bold text-gray-400 text-sm">Nenhuma sessão registrada neste período.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        {# ---- Formulário do relatório ---- #}
+        <div class="lg:col-span-3">
+            <h2 class="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">3. Montar Relatório PDF</h2>
+
+            <form method="POST" action="{{ url_for('comunicacao.relatorio_salvar') }}"
+                  class="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 lg:p-8 space-y-6">
+                <!-- Hidden inputs -->
+                <input type="hidden" name="aluno_id"       value="{{ aluno.id }}">
+                <input type="hidden" name="periodo_inicio" value="{{ periodo_inicio }}">
+                <input type="hidden" name="periodo_fim"    value="{{ periodo_fim }}">
+                <input type="hidden" name="fotos_selecionadas" :value="JSON.stringify(fotosSelecionadas)">
+
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1.5 uppercase tracking-wider text-xs">Título Principal</label>
+                    <input type="text" name="titulo"
+                           value="Relatório de Evolução — {{ aluno.nome }}"
+                           class="w-full px-4 py-3.5 rounded-2xl border border-gray-200 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 text-base font-bold bg-gray-50 focus:bg-white transition-colors">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1.5 flex items-center gap-2 uppercase tracking-wider text-xs">
+                        <span class="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600">📝</span>
+                        Resumo do Período
+                    </label>
+                    <textarea name="resumo" rows="4"
+                              placeholder="Faça um panorama geral de como foi este mês/período para o aluno..."
+                              class="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 text-base bg-gray-50 focus:bg-white transition-colors resize-none leading-relaxed"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1.5 flex items-center gap-2 uppercase tracking-wider text-xs">
+                        <span class="w-6 h-6 bg-green-100 rounded-lg flex items-center justify-center text-green-600">💪</span>
+                        Pontos Fortes e Habilidades
+                    </label>
+                    <textarea name="pontos_fortes" rows="3"
+                              placeholder="O que o aluno demonstrou de melhor? Quais progressos marcantes notou?"
+                              class="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 text-base bg-gray-50 focus:bg-white transition-colors resize-none leading-relaxed"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1.5 flex items-center gap-2 uppercase tracking-wider text-xs">
+                        <span class="w-6 h-6 bg-yellow-100 rounded-lg flex items-center justify-center text-yellow-600">⚠️</span>
+                        Pontos de Atenção
+                    </label>
+                    <textarea name="pontos_atencao" rows="3"
+                              placeholder="O que precisa ser trabalhado? Quais dificuldades foram mapeadas?"
+                              class="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 text-base bg-gray-50 focus:bg-white transition-colors resize-none leading-relaxed"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1.5 flex items-center gap-2 uppercase tracking-wider text-xs">
+                        <span class="w-6 h-6 bg-primaryLight rounded-lg flex items-center justify-center text-primary">🎯</span>
+                        Próximos Passos e Avisos
+                    </label>
+                    <textarea name="proximos_passos" rows="3"
+                              placeholder="Sugestões de atividades em casa, metas de evolução para a próxima etapa..."
+                              class="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 text-base bg-gray-50 focus:bg-white transition-colors resize-none leading-relaxed"></textarea>
+                </div>
+
+                <div class="pt-4 border-t border-gray-100">
+                    <button type="submit"
+                            class="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gray-900 hover:bg-black text-white rounded-2xl font-bold text-[15px] transition-all shadow-xl shadow-gray-200 active:scale-[0.98]">
+                        <i data-lucide="file-check" class="w-5 h-5"></i>
+                        SALVAR E GERAR PDF LOGO APÓS
+                    </button>
+                    <p class="text-center text-xs text-gray-400 mt-3 font-semibold">
+                        Nós te redicionaremos para a tela de impressão do relatório final enfeitado!
+                    </p>
+                </div>
+            </form>
+        </div>
+
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+document.addEventListener('alpine:init', () => {
+    Alpine.data('relatorioData', () => ({
+        fotosSelecionadas: [],
+        toggleFoto(path) {
+            if (this.fotosSelecionadas.includes(path)) {
+                this.fotosSelecionadas = this.fotosSelecionadas.filter(p => p !== path);
+            } else {
+                this.fotosSelecionadas.push(path);
+            }
+        }
+    }));
+});
+</script>
+<style>
+    .scale-transition { transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
+</style>
+{% endblock %}

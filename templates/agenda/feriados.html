@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Feriados - Ninho{% endblock %}
+
+{% block page_header %}
+<div class="flex items-center justify-between">
+    <div class="flex items-center gap-3">
+        <a href="{{ url_for('agenda.index') }}" class="p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors">
+            <i data-lucide="arrow-left" class="w-6 h-6"></i>
+        </a>
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 tracking-tight">Feriados</h1>
+            <p class="text-gray-500 mt-0.5 text-sm">Configure datas especiais para cancelamento automático</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6 pb-10">
+
+    <!-- Formulário de novo feriado -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div class="bg-yellow-50/50 px-6 py-4 border-b border-yellow-100 flex items-center gap-2">
+            <i data-lucide="sun" class="w-5 h-5 text-yellow-500"></i>
+            <h3 class="font-bold text-gray-800">Adicionar Feriado</h3>
+        </div>
+        <form method="POST" action="{{ url_for('agenda.feriados') }}" class="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="sm:col-span-2">
+                <label class="block text-sm font-bold text-gray-700 mb-1.5">Nome do Feriado *</label>
+                <input type="text" name="nome" required placeholder="Ex: Natal, Carnaval, Recesso..."
+                       class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-gray-50 focus:bg-white">
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1.5">Data *</label>
+                <input type="date" name="data" required
+                       class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-gray-50 focus:bg-white">
+            </div>
+            <div class="flex flex-col justify-end gap-3">
+                <label class="flex items-center gap-2 cursor-pointer select-none">
+                    <input type="checkbox" name="recorrente" value="on"
+                           class="w-4 h-4 rounded accent-primary">
+                    <span class="text-sm font-semibold text-gray-700">Repete todo ano</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer select-none">
+                    <input type="checkbox" name="cancelar_aulas" value="on" checked
+                           class="w-4 h-4 rounded accent-primary">
+                    <span class="text-sm font-semibold text-gray-700">Cancelar aulas do dia</span>
+                </label>
+            </div>
+            <div class="sm:col-span-2">
+                <button type="submit"
+                        class="w-full sm:w-auto px-6 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primaryHover transition-all shadow-sm shadow-primary/30 flex items-center justify-center gap-2">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    Adicionar Feriado
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Lista de feriados -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+            <i data-lucide="list" class="w-5 h-5 text-gray-400"></i>
+            <h3 class="font-bold text-gray-800">Feriados Cadastrados</h3>
+            <span class="ml-auto text-xs text-gray-400 font-semibold">{{ feriados|length }} no total</span>
+        </div>
+
+        {% if feriados %}
+        <ul class="divide-y divide-gray-50">
+            {% for f in feriados %}
+            <li class="flex items-center gap-4 px-6 py-4 hover:bg-gray-50/50 transition-colors">
+                <!-- Data badge -->
+                <div class="w-12 h-12 rounded-xl bg-yellow-50 border border-yellow-100 flex flex-col items-center justify-center shrink-0">
+                    <span class="text-[10px] font-bold text-yellow-600 uppercase">{{ f.data[5:7] }}/{{ f.data[0:4] }}</span>
+                    <span class="text-lg font-black text-gray-800 leading-none">{{ f.data[8:10] }}</span>
+                </div>
+
+                <!-- Info -->
+                <div class="flex-1 min-w-0">
+                    <p class="font-bold text-gray-800 truncate">{{ f.nome }}</p>
+                    <div class="flex items-center gap-2 mt-0.5">
+                        {% if f.recorrente %}
+                        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100">Anual</span>
+                        {% endif %}
+                        <span class="text-xs text-gray-400">{{ f.data }}</span>
+                    </div>
+                </div>
+
+                <!-- Ações -->
+                <div class="flex gap-2 shrink-0">
+                    <form method="POST" action="{{ url_for('agenda.cancelar_aulas_feriado_view', feriado_id=f.id) }}"
+                          onsubmit="return confirm('Cancelar todas as aulas agendadas em {{ f.data }}?')">
+                        <button type="submit" title="Cancelar aulas do dia"
+                                class="p-2 text-orange-500 hover:bg-orange-50 rounded-xl border border-orange-200 transition-colors">
+                            <i data-lucide="calendar-x" class="w-4 h-4"></i>
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('agenda.deletar_feriado_view', feriado_id=f.id) }}"
+                          onsubmit="return confirm('Remover o feriado {{ f.nome }}?')">
+                        <button type="submit" title="Remover feriado"
+                                class="p-2 text-red-500 hover:bg-red-50 rounded-xl border border-red-200 transition-colors">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </form>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="p-12 text-center text-gray-400 flex flex-col items-center">
+            <i data-lucide="sun" class="w-12 h-12 mb-3 opacity-30"></i>
+            <p class="font-semibold">Nenhum feriado cadastrado</p>
+            <p class="text-sm mt-1">Adicione feriados para cancelar aulas automaticamente</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

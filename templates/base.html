@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>{% block title %}NinhoTutor - Sistema de Gestão{% endblock %}</title>
+    
+    <!-- Google Fonts: Nunito for a welcoming, educational feel -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS (via CDN as requested) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '{{ session.get("user_cor_primaria", "#7F77DD") }}',
+                        primaryHover: '{{ session.get("user_cor_primaria", "#7F77DD") }}e6',
+                        primaryLight: '{{ session.get("user_cor_primaria", "#7F77DD") }}1a',
+                        sidebar: '#ffffff',
+                    },
+                    fontFamily: {
+                        sans: ['Nunito', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Flatpickr (seleção de data/hora robusta) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    
+    <!-- Alpine.js plugins (must load before Alpine core) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/sort@3.x.x/dist/cdn.min.js"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- Lucide Icons (lightweight and modern) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* Base styles */
+        body { 
+            font-family: 'Nunito', sans-serif; 
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* Hide scrollbar for a cleaner sidebar look */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        
+        /* Safe area handling for mobile devices (like iPhones) */
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col md:flex-row" x-data="{ sidebarOpen: false }">
+
+    <!-- Mobile Top Header -->
+    <header class="md:hidden bg-primary text-white p-4 flex items-center justify-between shadow-md z-30 relative">
+        <div class="flex items-center gap-2">
+            {% if session.get('user_logo_url') %}
+            <img src="{{ session.user_logo_url }}" class="w-6 h-6 object-contain rounded" alt="Logo">
+            {% else %}
+            <i data-lucide="graduation-cap" class="w-6 h-6"></i>
+            {% endif %}
+            <h1 class="text-xl font-bold tracking-wide">NinhoTutor</h1>
+        </div>
+        <button @click="sidebarOpen = !sidebarOpen" class="p-1.5 focus:outline-none rounded-lg hover:bg-primaryHover transition-colors bg-white/10">
+            <i data-lucide="menu" class="w-5 h-5"></i>
+        </button>
+    </header>
+
+    <!-- Sidebar (Desktop) / Sliding Menu (Mobile) -->
+    <!-- Mobile background overlay -->
+    <div x-cloak x-show="sidebarOpen" 
+         class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-40 md:hidden transition-opacity" 
+         x-transition:enter="ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         @click="sidebarOpen = false">
+    </div>
+
+    <!-- Sidebar Container -->
+    <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'" 
+           class="fixed md:static inset-y-0 left-0 w-64 bg-sidebar border-r border-gray-100 shadow-2xl md:shadow-none z-50 transform md:transform-none transition-transform duration-300 ease-in-out flex flex-col no-scrollbar overflow-y-auto">
+        
+        <!-- Desktop Logo / Header -->
+        <div class="hidden md:flex items-center justify-center py-8 border-b border-gray-100 mb-4 sticky top-0 bg-sidebar z-10">
+            <div class="flex flex-col items-center gap-2">
+                <div class="bg-primaryLight p-3 rounded-2xl shadow-sm flex items-center justify-center overflow-hidden">
+                    {% if session.get('user_logo_url') %}
+                    <img src="{{ session.user_logo_url }}" class="hover:scale-105 transition-transform w-10 h-10 object-contain" alt="Logo">
+                    {% else %}
+                    <i data-lucide="graduation-cap" class="text-primary w-8 h-8"></i>
+                    {% endif %}
+                </div>
+                <h1 class="text-2xl font-bold text-gray-800 tracking-tight">NinhoTutor</h1>
+            </div>
+        </div>
+
+        <!-- Mobile Sidebar Header inside the drawer -->
+        <div class="md:hidden p-5 flex items-center justify-between border-b border-gray-100 mb-2">
+            <span class="text-xl font-bold tracking-tight text-gray-800">Menu</span>
+            <button @click="sidebarOpen = false" class="text-gray-400 hover:text-gray-800 bg-gray-50 hover:bg-gray-100 p-2 rounded-full transition-colors">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <!-- Navigation Links -->
+        <!-- Note: We use Jinja helpers where possible or normal active classes -->
+        <nav class="flex-1 px-4 space-y-1.5 overflow-y-auto">
+            {% set active_module = request.endpoint.split('.')[0] if request.endpoint else '' %}
+            
+            <a href="{{ url_for('main.dashboard') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all {% if active_module == 'main' %}text-primary font-bold bg-primaryLight shadow-sm{% else %}text-gray-600 hover:text-primary hover:bg-primaryLight/50 font-semibold group{% endif %}">
+                <i data-lucide="layout-dashboard" class="w-5 h-5 {% if active_module != 'main' %}text-gray-400 group-hover:text-primary transition-colors{% endif %}"></i>
+                <span>Dashboard</span>
+            </a>
+
+            <a href="{{ url_for('alunos.lista') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all {% if active_module == 'alunos' %}text-primary font-bold bg-primaryLight shadow-sm{% else %}text-gray-600 hover:text-primary hover:bg-primaryLight/50 font-semibold group{% endif %}">
+                <i data-lucide="users" class="w-5 h-5 {% if active_module != 'alunos' %}text-gray-400 group-hover:text-primary transition-colors{% endif %}"></i>
+                <span>Alunos</span>
+            </a>
+            
+            <a href="{{ url_for('agenda.index') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all {% if active_module == 'agenda' %}text-primary font-bold bg-primaryLight shadow-sm{% else %}text-gray-600 hover:text-primary hover:bg-primaryLight/50 font-semibold group{% endif %}">
+                <i data-lucide="calendar" class="w-5 h-5 {% if active_module != 'agenda' %}text-gray-400 group-hover:text-primary transition-colors{% endif %}"></i>
+                <span>Agenda</span>
+            </a>
+            
+<a href="{{ url_for('planejamento.index') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all {% if active_module == 'planejamento' %}text-primary font-bold bg-primaryLight shadow-sm{% else %}text-gray-600 hover:text-primary hover:bg-primaryLight/50 font-semibold group{% endif %}">
+                <i data-lucide="book-open" class="w-5 h-5 {% if active_module != 'planejamento' %}text-gray-400 group-hover:text-primary transition-colors{% endif %}"></i>
+                <span>Planejamento</span>
+            </a>
+
+            <a href="{{ url_for('financeiro.index') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all {% if active_module == 'financeiro' %}text-primary font-bold bg-primaryLight shadow-sm{% else %}text-gray-600 hover:text-primary hover:bg-primaryLight/50 font-semibold group{% endif %}">
+                <i data-lucide="wallet" class="w-5 h-5 {% if active_module != 'financeiro' %}text-gray-400 group-hover:text-primary transition-colors{% endif %}"></i>
+                <span>Financeiro</span>
+            </a>
+
+            <a href="{{ url_for('comunicacao.index') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all {% if active_module == 'comunicacao' %}text-primary font-bold bg-primaryLight shadow-sm{% else %}text-gray-600 hover:text-primary hover:bg-primaryLight/50 font-semibold group{% endif %}">
+                <i data-lucide="message-circle" class="w-5 h-5 {% if active_module != 'comunicacao' %}text-gray-400 group-hover:text-primary transition-colors{% endif %}"></i>
+                <span>Comunicação</span>
+            </a>
+        </nav>
+
+        <!-- User Profile (Bottom of Sidebar) -->
+        <div class="p-4 border-t border-gray-100 bg-sidebar sticky bottom-0 z-10">
+            <a href="{{ url_for('auth.perfil') }}" class="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-gray-50 transition-colors group">
+                <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-black shadow-md text-base shrink-0">
+                    {{ session.get('user_inicial', 'P') }}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-bold text-gray-800 truncate group-hover:text-primary transition-colors">
+                        {{ session.get('user_nome', session.user_email or 'Professor') }}
+                    </p>
+                    <p class="text-xs text-gray-400 truncate">Editar perfil</p>
+                </div>
+                <i data-lucide="settings" class="w-4 h-4 text-gray-300 group-hover:text-primary transition-colors shrink-0"></i>
+            </a>
+            <form method="POST" action="{{ url_for('auth.logout') }}" class="mt-1">
+                <button type="submit" class="w-full text-xs text-red-400 hover:text-red-600 hover:bg-red-50 font-bold py-2 rounded-xl transition-colors text-center">
+                    Sair da conta
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col h-screen overflow-y-auto pb-20 md:pb-0 relative scroll-smooth">
+        <!-- Content wrapper -->
+        <div class="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto w-full flex-1">
+            
+            <!-- Contextual Header Elements (Optional via block) -->
+            <div class="mb-6">
+                {% block page_header %}{% endblock %}
+            </div>
+
+            <!-- Flash messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+            <div class="mb-4 px-4 py-3 rounded-xl text-sm font-semibold
+                {% if category == 'danger' %}bg-red-50 text-red-700 border border-red-200
+                {% elif category == 'success' %}bg-green-50 text-green-700 border border-green-200
+                {% elif category == 'warning' %}bg-yellow-50 text-yellow-700 border border-yellow-200
+                {% else %}bg-blue-50 text-blue-700 border border-blue-200{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+            {% endwith %}
+
+            <!-- Main Content Injection -->
+            {% block content %}
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-10 text-center flex flex-col items-center justify-center min-h-[60vh]">
+                <div class="w-20 h-20 bg-primaryLight rounded-full flex items-center justify-center mb-4">
+                    <i data-lucide="sparkles" class="w-10 h-10 text-primary"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">Bem-vindo ao NinhoTutor!</h2>
+                <p class="text-gray-500 max-w-md">Selecione uma opção no menu para gerenciar seus alunos, visualizar sua agenda e muito mais.</p>
+            </div>
+            {% endblock %}
+        </div>
+    </main>
+
+    <!-- Bottom Navigation (Mobile Only) -->
+    <!-- Fixed to bottom, highly visible, using app-like design -->
+    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-30 pb-safe shadow-[0_-5px_20px_rgba(0,0,0,0.03)]">
+        <div class="flex justify-around items-center h-[4.5rem] px-1">
+            {% set active_module = request.endpoint.split('.')[0] if request.endpoint else '' %}
+            
+            <!-- Dashboard -->
+            <a href="{{ url_for('main.dashboard') }}" class="flex flex-col items-center justify-center w-full h-full {% if active_module == 'main' %}text-primary{% else %}text-gray-400 hover:text-primary transition-colors{% endif %} gap-1 relative group">
+                {% if active_module == 'main' %}
+                <div class="absolute top-1 w-1 h-1 bg-primary rounded-full"></div>
+                <i data-lucide="layout-dashboard" class="w-6 h-6 mt-1"></i>
+                <span class="text-[10px] font-bold">Home</span>
+                {% else %}
+                <i data-lucide="layout-dashboard" class="w-6 h-6"></i>
+                <span class="text-[10px] font-semibold">Home</span>
+                {% endif %}
+            </a>
+            
+            <!-- Alunos -->
+            <a href="{{ url_for('alunos.lista') }}" class="flex flex-col items-center justify-center w-full h-full {% if active_module == 'alunos' %}text-primary{% else %}text-gray-400 hover:text-primary transition-colors{% endif %} gap-1 relative">
+                {% if active_module == 'alunos' %}
+                <div class="absolute top-1 w-1 h-1 bg-primary rounded-full"></div>
+                <i data-lucide="users" class="w-6 h-6 mt-1"></i>
+                <span class="text-[10px] font-bold">Alunos</span>
+                {% else %}
+                <i data-lucide="users" class="w-6 h-6"></i>
+                <span class="text-[10px] font-semibold">Alunos</span>
+                {% endif %}
+            </a>
+            
+            <!-- Agenda -->
+            <a href="{{ url_for('agenda.index') }}" class="flex flex-col items-center justify-center w-full h-full {% if active_module == 'agenda' %}text-primary{% else %}text-gray-400 hover:text-primary transition-colors{% endif %} gap-1 relative">
+                {% if active_module == 'agenda' %}
+                <div class="absolute top-1 w-1 h-1 bg-primary rounded-full"></div>
+                <i data-lucide="calendar" class="w-6 h-6 mt-1"></i>
+                <span class="text-[10px] font-bold">Agenda</span>
+                {% else %}
+                <i data-lucide="calendar" class="w-6 h-6"></i>
+                <span class="text-[10px] font-semibold">Agenda</span>
+                {% endif %}
+            </a>
+
+            <!-- Menu "Mais" (Triggers Sidebar) -->
+            <button @click="sidebarOpen = true" class="flex flex-col items-center justify-center w-full h-full {% if active_module not in ['main', 'alunos', 'agenda'] %}text-primary{% else %}text-gray-400 hover:text-primary transition-colors{% endif %} gap-1 relative">
+                {% if active_module not in ['main', 'alunos', 'agenda'] %}
+                <div class="absolute top-1 w-1 h-1 bg-primary rounded-full"></div>
+                <i data-lucide="menu" class="w-6 h-6 mt-1"></i>
+                <span class="text-[10px] font-bold">Mais</span>
+                {% else %}
+                <i data-lucide="menu" class="w-6 h-6"></i>
+                <span class="text-[10px] font-semibold">Mais</span>
+                {% endif %}
+            </button>
+
+        </div>
+    </nav>
+
+    <!-- Initialize Icons -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+        });
+    </script>
+    
+    <!-- Flatpickr JS & Locale -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/pt.js"></script>
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.directive('flatpickr', (el, { expression }, { evaluateLater, effect }) => {
+                const evaluate = evaluateLater(expression || '{}');
+                evaluate((config) => {
+                    config.locale = "pt";
+                    config.time_24hr = true;
+                    config.minuteIncrement = 10;
+                    flatpickr(el, config);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
