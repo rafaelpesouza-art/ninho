@@ -101,8 +101,8 @@ def fechamento():
 
     grupos = calcular_fechamento(sb, professor_id, mes, ano)
 
-    n_novos     = sum(1 for g in grupos if not g["fatura_existente"] and g["total"] > 0)
-    total_geral = sum(g["total"] for g in grupos if not g["fatura_existente"] and g["total"] > 0)
+    n_novos     = sum(1 for g in grupos if g.get("pendente", 0) > 0)
+    total_geral = sum(g.get("pendente", 0) for g in grupos)
 
     mes_ant  = _mes_anterior(mes, ano)
     mes_prox = _proximo_mes(mes, ano)
@@ -139,6 +139,42 @@ def gerar_fechamento():
         flash(f"Erro ao gerar faturas: {e}", "danger")
 
     return redirect(url_for("financeiro.faturas", mes=mes, ano=ano))
+
+
+@financeiro_bp.route("/fechamento/preview-complemento")
+@login_required
+def preview_complemento():
+    sb = _sb()
+    professor_id = session["user_id"]
+
+    mes        = int(request.args.get("mes", date.today().month))
+    ano        = int(request.args.get("ano", date.today().year))
+    aluno_id   = request.args.get("aluno_id", "")
+    familia_id = request.args.get("familia_id") or None
+
+    grupos = calcular_fechamento(sb, professor_id, mes, ano)
+    grupo  = None
+    for g in grupos:
+        if familia_id and g.get("familia_id") == familia_id:
+            grupo = g
+            break
+        if not familia_id and aluno_id in g.get("aluno_ids", []):
+            grupo = g
+            break
+
+    if not grupo or grupo.get("pendente", 0) <= 0:
+        flash("Não há valor pendente para este grupo.", "warning")
+        return redirect(url_for("financeiro.fechamento", mes=mes, ano=ano))
+
+    return render_template(
+        "financeiro/preview_complemento.html",
+        grupo=grupo,
+        mes=mes, ano=ano,
+        mes_nome=MESES_PT[mes],
+        aluno_id=aluno_id,
+        familia_id=familia_id or "",
+        fmt_valor=fmt_valor,
+    )
 
 
 @financeiro_bp.route("/fechamento/gerar-um", methods=["POST"])

@@ -442,6 +442,14 @@ def resumo_financeiro(sb, professor_id: str, mes: int, ano: int) -> dict:
                   .in_("status", ["pendente", "parcial"]).execute())
         pendente = sum(float(f["valor"]) for f in (r_pend.data or []))
 
+        # Inclui sessões realizadas ainda não faturadas (sem double-count:
+        # quando a fatura complementar existe, g["pendente"] == 0)
+        try:
+            grupos = calcular_fechamento(sb, professor_id, mes, ano)
+            pendente = round(pendente + sum(g.get("pendente", 0) for g in grupos), 2)
+        except Exception:
+            pass
+
         r_inad = (sb.table("faturas").select("id", count="exact")
                   .eq("professor_id", professor_id)
                   .in_("status", ["pendente", "parcial", "vencida"])

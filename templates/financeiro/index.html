@@ -61,7 +61,8 @@
     <!-- KPIs de Visão Geral -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
         <!-- Recebido -->
-        <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm relative overflow-hidden group">
+        <a href="{{ url_for('financeiro.faturas', status='paga', mes=mes, ano=ano) }}"
+           class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm relative overflow-hidden group hover:shadow-md hover:border-green-200 transition-all">
             <div class="absolute -right-6 -top-6 w-24 h-24 bg-green-50 rounded-full group-hover:scale-110 transition-transform"></div>
             <div class="relative z-10">
                 <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
@@ -70,10 +71,11 @@
                 </p>
                 <h3 class="text-xl md:text-2xl font-black text-gray-800">{{ fmt_valor(resumo.receita) }}</h3>
             </div>
-        </div>
+        </a>
 
         <!-- Pendente -->
-        <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm relative overflow-hidden group">
+        <a href="{{ url_for('financeiro.faturas', status='pendente', mes=mes, ano=ano) }}"
+           class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm relative overflow-hidden group hover:shadow-md hover:border-yellow-200 transition-all">
             <div class="absolute -right-6 -top-6 w-24 h-24 bg-yellow-50 rounded-full group-hover:scale-110 transition-transform"></div>
             <div class="relative z-10">
                 <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
@@ -82,10 +84,11 @@
                 </p>
                 <h3 class="text-xl md:text-2xl font-black text-gray-800">{{ fmt_valor(resumo.pendente) }}</h3>
             </div>
-        </div>
+        </a>
 
         <!-- Inadimplentes (Atrasados) -->
-        <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm relative overflow-hidden group col-span-2 md:col-span-1 border-b-4 border-b-red-400">
+        <a href="{{ url_for('financeiro.faturas', status='vencida') }}"
+           class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm relative overflow-hidden group col-span-2 md:col-span-1 border-b-4 border-b-red-400 hover:shadow-md hover:border-red-200 transition-all">
             <div class="absolute -right-6 -top-6 w-24 h-24 bg-red-50 rounded-full group-hover:scale-110 transition-transform"></div>
             <div class="relative z-10">
                 <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
@@ -97,10 +100,11 @@
                     <span class="text-sm font-medium text-gray-400">faturas</span>
                 </div>
             </div>
-        </div>
+        </a>
 
         <!-- A Vencer -->
-        <div class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm relative overflow-hidden group col-span-2 md:col-span-1 border-b-4 border-b-blue-400">
+        <a href="{{ url_for('financeiro.faturas', status='pendente') }}"
+           class="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm relative overflow-hidden group col-span-2 md:col-span-1 border-b-4 border-b-blue-400 hover:shadow-md hover:border-blue-200 transition-all">
             <div class="absolute -right-6 -top-6 w-24 h-24 bg-blue-50 rounded-full group-hover:scale-110 transition-transform"></div>
             <div class="relative z-10">
                 <p class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
@@ -112,7 +116,7 @@
                     <span class="text-sm font-medium text-gray-400">faturas</span>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
 
     <!-- Barra de Progresso Visual (Recebido vs Previsto) -->
