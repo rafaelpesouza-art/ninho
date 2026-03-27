@@ -31,8 +31,8 @@ def _st_headers(content_type: str | None = None) -> dict:
 def buscar_registro(sb, professor_id: str, registro_id: str) -> dict | None:
     try:
         res = (
-            sb.table("registros_aula")
-            .select("*, aulas(id, data_hora, duracao_min, aluno_id), alunos(id, nome)")
+            sb.table("registros_sessao")
+            .select("*, aulas(id, data_hora, duracao_min, aluno_id), alunos(id, nome, telefone)")
             .eq("professor_id", professor_id)
             .eq("id", registro_id)
             .maybe_single()
@@ -45,8 +45,8 @@ def buscar_registro(sb, professor_id: str, registro_id: str) -> dict | None:
 
 def listar_registros_aluno(sb, professor_id: str, aluno_id: str, limit: int = 20) -> list:
     res = (
-        sb.table("registros_aula")
-        .select("id, criado_em, evolucao, humor, participacao, aulas(data_hora)")
+        sb.table("registros_sessao")
+        .select("id, criado_em, descricao, proximos_passos, observacoes_familia, enviado_familia, aulas(data_hora)")
         .eq("professor_id", professor_id)
         .eq("aluno_id", aluno_id)
         .order("criado_em", desc=True)
@@ -57,60 +57,58 @@ def listar_registros_aluno(sb, professor_id: str, aluno_id: str, limit: int = 20
 
 
 def criar_registro(sb, professor_id: str, dados: dict) -> dict:
-    aula_id = dados.get("aula_id", "").strip()
+    aula_id  = dados.get("aula_id", "").strip()
     aluno_id = dados.get("aluno_id", "").strip()
 
     if not aula_id or not aluno_id:
         raise ValueError("aula_id e aluno_id são obrigatórios.")
 
-    participacao = None
-    raw = dados.get("participacao", "")
-    if raw:
-        try:
-            p = int(raw)
-            participacao = max(1, min(5, p))
-        except (ValueError, TypeError):
-            pass
-
     payload = {
-        "professor_id": professor_id,
-        "aula_id":      aula_id,
-        "aluno_id":     aluno_id,
-        "descricao":    dados.get("descricao") or None,
-        "evolucao":     dados.get("evolucao") or None,
-        "humor":        dados.get("humor") or None,
-        "participacao": participacao,
-        "observacoes":  dados.get("observacoes") or None,
+        "professor_id":        professor_id,
+        "aula_id":             aula_id,
+        "aluno_id":            aluno_id,
+        "descricao":           dados.get("descricao") or None,
+        "proximos_passos":     dados.get("proximos_passos") or None,
+        "enviado_familia":     False,
     }
-    res = sb.table("registros_aula").insert(payload).execute()
+    res = sb.table("registros_sessao").insert(payload).execute()
     return res.data[0]
 
 
 def atualizar_registro(sb, professor_id: str, registro_id: str, dados: dict) -> dict | None:
-    participacao = None
-    raw = dados.get("participacao", "")
-    if raw:
-        try:
-            p = int(raw)
-            participacao = max(1, min(5, p))
-        except (ValueError, TypeError):
-            pass
-
     payload = {
-        "descricao":    dados.get("descricao") or None,
-        "evolucao":     dados.get("evolucao") or None,
-        "humor":        dados.get("humor") or None,
-        "participacao": participacao,
-        "observacoes":  dados.get("observacoes") or None,
+        "descricao":           dados.get("descricao") or None,
+        "proximos_passos":     dados.get("proximos_passos") or None,
     }
     res = (
-        sb.table("registros_aula")
+        sb.table("registros_sessao")
         .update(payload)
         .eq("professor_id", professor_id)
         .eq("id", registro_id)
         .execute()
     )
     return res.data[0] if res.data else None
+
+
+def marcar_enviada_familia(sb, professor_id: str, registro_id: str) -> None:
+    sb.table("registros_sessao").update({"enviado_familia": True}).eq("id", registro_id).eq("professor_id", professor_id).execute()
+
+
+def salvar_mensagem_familia(sb, professor_id: str, registro_id: str, aluno_id: str,
+                            texto: str, foto_ids: list) -> dict:
+    """Salva mensagem para família e retorna o registro criado."""
+    from datetime import datetime as _datetime
+    payload = {
+        "professor_id":       professor_id,
+        "registro_id":        registro_id,
+        "aluno_id":           aluno_id,
+        "texto":              texto or None,
+        "fotos_selecionadas": foto_ids or [],
+        "enviado":            True,
+        "data_envio":         _datetime.utcnow().isoformat(),
+    }
+    res = sb.table("mensagens_familia").insert(payload).execute()
+    return res.data[0] if res.data else {}
 
 
 # ---------------------------------------------------------------------------
@@ -209,7 +207,7 @@ def listar_fotos_registro(sb, professor_id: str, registro_id: str) -> list:
 def listar_fotos_aluno(sb, professor_id: str, aluno_id: str, limit: int = 60) -> list:
     res = (
         sb.table("fotos_sessao")
-        .select("id, storage_path, legenda, criado_em, registro_id, registros_aula(descricao)")
+        .select("id, storage_path, legenda, criado_em, registro_id, registros_sessao(descricao)")
         .eq("professor_id", professor_id)
         .eq("aluno_id", aluno_id)
         .order("criado_em", desc=True)
@@ -218,7 +216,7 @@ def listar_fotos_aluno(sb, professor_id: str, aluno_id: str, limit: int = 60) ->
     )
     fotos = res.data or []
     for f in fotos:
-        regs = f.get("registros_aula")
+        regs = f.get("registros_sessao")
         f["descricao_aula"] = regs.get("descricao") if isinstance(regs, dict) else None
     return fotos
 
@@ -271,7 +269,7 @@ def registro_ja_existe(sb, professor_id: str, aula_id: str) -> dict | None:
     """Retorna o registro existente para a aula, se houver."""
     try:
         res = (
-            sb.table("registros_aula")
+            sb.table("registros_sessao")
             .select("id")
             .eq("professor_id", professor_id)
             .eq("aula_id", aula_id)

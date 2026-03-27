@@ -1,22 +1,26 @@
 {% extends "base.html" %}
 {% block title %}{{ 'Editar' if registro else 'Novo' }} Registro - Ninho{% endblock %}
 
-{% set fd = form_data or {} %}
+{% set fd = form_data if form_data is defined else {} %}
+
+{% set _aluno_id = (aula.alunos.id if aula and aula.alunos else (registro.aluno_id if registro else '')) %}
+{% set _aluno_nome = (aula.alunos.nome if aula and aula.alunos else (registro.alunos.nome if registro and registro.alunos else '')) %}
+{% set _telefone = (aula.alunos.telefone if aula and aula.alunos else (registro.alunos.telefone if registro and registro.alunos else '')) %}
+{% set _data_hora = (aula.data_hora if aula else (registro.aulas.data_hora if registro and registro.aulas else '')) %}
 
 {% block page_header %}
 <div class="flex items-center gap-3 mb-2">
-    <a href="{{ url_for('alunos.ficha', aluno_id=aula.alunos.id) if aula and aula.alunos else url_for('agenda.index') }}"
-       class="p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors">
+    <a href="{{ url_for('alunos.ficha', aluno_id=_aluno_id, tab='historico') if _aluno_id else url_for('agenda.index') }}"
+       class="p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors focus:ring-2 focus:ring-primary/40 outline-none">
         <i data-lucide="arrow-left" class="w-6 h-6"></i>
     </a>
     <div>
         <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 tracking-tight">
-            {{ 'Editar Registro' if registro else 'Registrar Aula' }}
+            {{ 'Editar Registro' if registro else 'Registro de Sessão' }}
         </h1>
-        {% if aula and aula.alunos %}
+        {% if _aluno_nome %}
         <p class="text-gray-500 mt-0.5 text-sm font-medium">
-            {{ aula.alunos.nome }} —
-            {{ aula.data_hora[8:10] }}/{{ aula.data_hora[5:7] }}/{{ aula.data_hora[0:4] }}
+            {{ _aluno_nome }}{% if _data_hora %} — {{ _data_hora[8:10] }}/{{ _data_hora[5:7] }}/{{ _data_hora[0:4] }}{% endif %}
         </p>
         {% endif %}
     </div>
@@ -24,271 +28,101 @@
 {% endblock %}
 
 {% block content %}
-<form method="POST"
+<form method="POST" id="registroForm"
       action="{{ url_for('registros.salvar_edicao', registro_id=registro.id) if registro else url_for('registros.criar') }}"
-      class="max-w-2xl mx-auto space-y-6 pb-24 md:pb-6"
-      enctype="multipart/form-data">
+      class="max-w-2xl mx-auto space-y-5 pb-32 md:pb-6"
+      enctype="multipart/form-data"
+      x-data="registroApp()">
 
-    <!-- Hidden fields -->
     <input type="hidden" name="aula_id"     value="{{ aula.id if aula else (registro.aula_id if registro else '') }}">
-    <input type="hidden" name="aluno_id"    value="{{ aula.alunos.id if aula and aula.alunos else (registro.aluno_id if registro else '') }}">
+    <input type="hidden" name="aluno_id"   value="{{ _aluno_id }}">
     <input type="hidden" name="registro_id" value="{{ registro.id if registro else '' }}">
 
-    <!-- Card: Contexto -->
-    {% if aula %}
-    <div class="bg-white border text-center rounded-xl p-3 shadow-sm border-primary/20 bg-primaryLight/10 flex items-center gap-4">
-        <div class="w-12 h-12 rounded-xl bg-primary flex items-center justify-center text-white font-bold text-lg shrink-0">
-            {{ aula.alunos.nome[:1] | upper if aula.alunos else '?' }}
+    <!-- Contexto da Sessão -->
+    {% if _aluno_nome %}
+    <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-center gap-4">
+        <div class="w-11 h-11 rounded-xl bg-blue-500 flex items-center justify-center text-white font-bold text-lg shrink-0 shadow-sm border border-blue-400">
+            {{ _aluno_nome[:1] | upper }}
         </div>
-        <div class="text-left flex-1">
-            <p class="font-bold text-gray-800">{{ aula.alunos.nome if aula.alunos else 'Aluno' }}</p>
-            <p class="text-xs text-gray-500">
-                <i data-lucide="clock" class="w-3 h-3 inline"></i> {{ aula.data_hora[11:16] }} ({{ aula.duracao_min }} min)
+        <div>
+            <p class="font-bold text-gray-800">{{ _aluno_nome }}</p>
+            {% if _data_hora %}
+            <p class="text-xs text-gray-500 font-semibold">
+                {{ _data_hora[8:10] }}/{{ _data_hora[5:7] }}/{{ _data_hora[0:4] }}
+                {% if aula and aula.duracao_min %} &bull; {{ aula.duracao_min }} min{% endif %}
             </p>
+            {% endif %}
         </div>
-        <span class="px-3 py-1 text-xs font-bold bg-green-100 text-green-700 rounded-xl border border-green-200">
-            ✓ Realizada
+        {% if registro and registro.enviado_familia %}
+        <span class="ml-auto flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-100 border border-green-200 px-2 py-0.5 rounded-md uppercase tracking-wider">
+            <i data-lucide="check-circle" class="w-3 h-3"></i> Enviado
         </span>
+        {% endif %}
     </div>
     {% endif %}
 
-    <!-- Card: Engajamento Visual (Rapid Entry) -->
-    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden py-4 px-6">
-        <h3 class="font-bold text-gray-800 mb-4 text-center">Como foi a aula de hoje?</h3>
-        
-        <div x-data="{ participacao: {{ (registro.participacao if registro else fd.get('participacao', '0')) or '0' }} }">
-            <input type="hidden" name="participacao" :value="participacao">
-            <div class="grid grid-cols-4 gap-2 sm:gap-4">
-                <!-- Excelente -->
-                <button type="button" @click="participacao = 5"
-                        :class="participacao == 5 ? 'bg-primaryLight border-primary ring-2 ring-primary/30 scale-105' : 'bg-gray-50 border-gray-100 hover:bg-gray-100 grayscale hover:grayscale-0'"
-                        class="flex flex-col items-center justify-center py-4 px-2 rounded-2xl border transition-all">
-                    <span class="text-3xl sm:text-4xl mb-1 drop-shadow-sm">🌟</span>
-                    <span class="text-[10px] sm:text-xs font-bold text-gray-700">Excelente</span>
-                </button>
-                <!-- Bom -->
-                <button type="button" @click="participacao = 4"
-                        :class="participacao == 4 ? 'bg-green-50 border-green-400 ring-2 ring-green-400/30 scale-105' : 'bg-gray-50 border-gray-100 hover:bg-gray-100 grayscale hover:grayscale-0'"
-                        class="flex flex-col items-center justify-center py-4 px-2 rounded-2xl border transition-all">
-                    <span class="text-3xl sm:text-4xl mb-1 drop-shadow-sm">😊</span>
-                    <span class="text-[10px] sm:text-xs font-bold text-gray-700">Boa</span>
-                </button>
-                <!-- Regular -->
-                <button type="button" @click="participacao = 3"
-                        :class="participacao == 3 ? 'bg-yellow-50 border-yellow-400 ring-2 ring-yellow-400/30 scale-105' : 'bg-gray-50 border-gray-100 hover:bg-gray-100 grayscale hover:grayscale-0'"
-                        class="flex flex-col items-center justify-center py-4 px-2 rounded-2xl border transition-all">
-                    <span class="text-3xl sm:text-4xl mb-1 drop-shadow-sm">😐</span>
-                    <span class="text-[10px] sm:text-xs font-bold text-gray-700">Regular</span>
-                </button>
-                <!-- Baixo -->
-                <button type="button" @click="participacao = 2"
-                        :class="participacao == 2 ? 'bg-red-50 border-red-400 ring-2 ring-red-400/30 scale-105' : 'bg-gray-50 border-gray-100 hover:bg-gray-100 grayscale hover:grayscale-0'"
-                        class="flex flex-col items-center justify-center py-4 px-2 rounded-2xl border transition-all">
-                    <span class="text-3xl sm:text-4xl mb-1 drop-shadow-sm">😟</span>
-                    <span class="text-[10px] sm:text-xs font-bold text-gray-700">Difícil</span>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Sugestões de Atividades -->
-    {% if sugestoes and not registro %}
-    <div class="bg-gradient-to-br from-primary/10 to-blue-50 rounded-2xl border border-primary/20 shadow-sm p-5 relative overflow-hidden group">
-        <i data-lucide="sparkles" class="absolute -right-4 -top-4 w-24 h-24 text-primary/10 rotate-12 group-hover:rotate-45 transition-transform duration-700 pointer-events-none"></i>
-        
-        <div class="flex items-center gap-2 mb-2 relative z-10">
-            <h3 class="font-black text-primary text-xs uppercase tracking-widest flex items-center gap-1.5">
-                <i data-lucide="zap" class="w-4 h-4 text-yellow-500 fill-yellow-500"></i> Sugestões Inteligentes
-            </h3>
-        </div>
-        <p class="text-xs text-gray-600 mb-4 font-semibold relative z-10">Baseado no perfil acadêmico do aluno, separamos o que pode ser ideal hoje:</p>
-        
-        <div class="grid sm:grid-cols-2 gap-3 relative z-10">
-            {% for s in sugestoes %}
-            <button type="button"
-                    data-titulo="{{ s.titulo | e }}"
-                    onclick="inserirSugestao(this.dataset.titulo)"
-                    class="text-left bg-white p-3 rounded-xl border border-gray-100 hover:border-primary/40 hover:shadow-md transition-all hover:-translate-y-0.5">
-                <p class="text-[13px] font-bold text-gray-800 leading-snug">{{ s.titulo }}</p>
-                <div class="flex gap-1.5 mt-2 opacity-80">
-                    {% if s.materia %}<span class="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{{ s.materia }}</span>{% endif %}
-                    {% if s.serie %}<span class="text-[9px] font-bold text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">{{ s.serie }}</span>{% endif %}
-                </div>
-            </button>
-            {% endfor %}
-        </div>
-        <script>
-        function inserirSugestao(titulo) {
-            const e = document.getElementById('descricao_input');
-            const texto = 'Atividade: ' + titulo;
-            e.value = e.value ? e.value + '\n' + texto : texto;
-            e.focus();
-        }
-        </script>
-    </div>
-    {% endif %}
-
-    <!-- O que foi trabalhado -->
-    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden p-6 space-y-4"
-         x-data="atividadeSelector()">
-
-        <!-- Modal de seleção de atividades -->
-        <div x-show="aberto" x-cloak
-             class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-             @click.self="aberto = false">
-            <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden">
-                <div class="flex items-center justify-between p-5 border-b border-gray-100">
-                    <h3 class="font-black text-gray-800">Banco de Atividades</h3>
-                    <button type="button" @click="aberto = false" class="p-2 rounded-xl hover:bg-gray-100 text-gray-400">
-                        <i data-lucide="x" class="w-5 h-5"></i>
-                    </button>
-                </div>
-                <div class="p-4 border-b border-gray-50 flex gap-2">
-                    <input type="text" x-model="busca" placeholder="Buscar atividade..."
-                           class="flex-1 px-3 py-3 rounded-xl border border-gray-200 text-base bg-gray-50 focus:outline-none focus:border-primary">
-                    <select x-model="filtroMateria"
-                            class="px-3 py-3 rounded-xl border border-gray-200 text-base bg-gray-50 focus:outline-none focus:border-primary">
-                        <option value="">Todas</option>
-                        <template x-for="m in materias" :key="m">
-                            <option :value="m" x-text="m"></option>
-                        </template>
-                    </select>
-                </div>
-                <div class="overflow-y-auto flex-1 p-3 space-y-2">
-                    <template x-if="carregando">
-                        <p class="text-center text-gray-400 text-sm py-8 font-semibold">Carregando...</p>
-                    </template>
-                    <template x-if="!carregando && filtradas().length === 0">
-                        <p class="text-center text-gray-400 text-sm py-8 font-semibold">Nenhuma atividade encontrada.</p>
-                    </template>
-                    <template x-for="a in filtradas()" :key="a.id">
-                        <button type="button" @click="inserir(a)"
-                                class="w-full text-left p-3 rounded-xl border border-gray-100 hover:border-primary/40 hover:bg-primaryLight/30 transition-all">
-                            <p class="font-bold text-sm text-gray-800" x-text="a.titulo"></p>
-                            <p class="text-xs text-gray-400 mt-0.5" x-text="[a.materia, a.serie].filter(Boolean).join(' · ')"></p>
-                            <p x-show="a.descricao" class="text-xs text-gray-500 mt-1 line-clamp-2" x-text="a.descricao"></p>
-                        </button>
-                    </template>
-                </div>
-            </div>
-        </div>
-
-        <div class="flex items-center justify-between">
-            <label class="block text-sm font-bold text-gray-700">Conteúdo Trabalhado *</label>
-            <button type="button" @click="abrirModal()"
-                    class="flex items-center gap-1.5 text-sm font-bold bg-primaryLight text-primary hover:bg-primary hover:text-white px-4 py-2.5 rounded-xl transition-colors">
-                <i data-lucide="library" class="w-4 h-4"></i>
-                Buscar do banco
-            </button>
-        </div>
-        <div>
-            <textarea name="descricao" id="descricao_input" rows="3" required
-                      placeholder="Ex: Reforço em sílabas complexas, leitura fluida..."
-                      class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-gray-50 focus:bg-white resize-y text-base transition-all placeholder-gray-400">{{ (registro.descricao if registro else fd.get('descricao', '')) or '' }}</textarea>
-        </div>
-        <div>
-            <label class="block text-sm font-bold text-gray-700 mb-2 mt-2">Evolução / Próximos Passos</label>
-            <textarea name="evolucao" rows="2"
-                      placeholder="Ex: Continuar leitura de pequenos textos..."
-                      class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-gray-50 focus:bg-white resize-y text-base transition-all placeholder-gray-400">{{ (registro.evolucao if registro else fd.get('evolucao', '')) or '' }}</textarea>
-        </div>
-        <div>
-            <label class="block text-sm font-bold text-gray-700 mb-2">Observações para Família</label>
-            <textarea name="observacoes" rows="2"
-                      placeholder="Ex: Pedir para trazer o caderno na próxima aula"
-                      class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-gray-50 focus:bg-white resize-y text-base transition-all placeholder-gray-400">{{ (registro.observacoes if registro else fd.get('observacoes', '')) or '' }}</textarea>
-        </div>
-    </div>
-
-<script>
-function atividadeSelector() {
-    return {
-        aberto: false,
-        carregando: false,
-        atividades: [],
-        busca: '',
-        filtroMateria: '',
-        materias: {{ materias_planejamento | tojson }},
-        async abrirModal() {
-            this.aberto = true;
-            if (this.atividades.length === 0) {
-                this.carregando = true;
-                try {
-                    const r = await fetch('{{ url_for("planejamento.atividades_api") }}');
-                    this.atividades = await r.json();
-                } catch(e) { this.atividades = []; }
-                this.carregando = false;
-            }
-        },
-        filtradas() {
-            return this.atividades.filter(a => {
-                const matchQ = !this.busca || a.titulo.toLowerCase().includes(this.busca.toLowerCase())
-                    || (a.descricao || '').toLowerCase().includes(this.busca.toLowerCase());
-                const matchM = !this.filtroMateria || a.materia === this.filtroMateria;
-                return matchQ && matchM;
-            });
-        },
-        inserir(a) {
-            const el = document.getElementById('descricao_input');
-            const extra = a.titulo + (a.descricao ? ': ' + a.descricao : '');
-            el.value = el.value ? el.value + '\n' + extra : extra;
-            this.aberto = false;
-            el.focus();
-        },
-    };
-}
-</script>
-
-    <!-- Upload Mobile-Friendly com Live Preview -->
-    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden p-6" x-data="{ 
-        previews: [],
-        handleFiles(event) {
-            const files = event.target.files;
-            this.previews = [];
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                if (file.type.match('image.*')) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => { this.previews.push({ url: e.target.result, name: file.name }) };
-                    reader.readAsDataURL(file);
-                }
-            }
-        }
-    }">
-        <div class="flex items-center gap-2 mb-4 text-blue-600">
-            <i data-lucide="camera" class="w-5 h-5"></i>
-            <h3 class="font-bold text-gray-800">Fotos da Sessão</h3>
-        </div>
-        
-        <!-- Botão Visual de Upload -->
-        <label class="relative flex flex-col items-center justify-center p-6 border-2 border-dashed border-blue-200 bg-blue-50/50 rounded-xl hover:bg-blue-50 transition-colors cursor-pointer w-full text-center">
-            <i data-lucide="upload-cloud" class="w-8 h-8 text-blue-500 mb-2"></i>
-            <span class="text-sm font-bold text-blue-700">Toque para adicionar fotos</span>
-            <input type="file" name="fotos" multiple accept="image/jpeg,image/png,image/webp" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" @change="handleFiles">
+    <!-- Seção 1: O que aconteceu na sessão -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <label for="descricao" class="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
+            <i data-lucide="book-open" class="w-4 h-4 text-primary"></i>
+            Como foi a sessão?
         </label>
-        
-        <!-- Live Preview Grid -->
-        <div class="grid grid-cols-3 gap-2 mt-4" x-show="previews.length > 0" x-cloak>
+        <textarea id="descricao" name="descricao" rows="5"
+                  placeholder="Descreva livremente o que foi trabalhado, como a criança respondeu, o que observou..."
+                  class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-gray-50 focus:bg-white resize-y text-base transition-all placeholder-gray-400">{{ (registro.descricao if registro else fd.get('descricao', '')) or '' }}</textarea>
+    </div>
+
+    <!-- Seção 2: Próximos passos -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <label for="proximos_passos" class="flex items-center gap-2 text-sm font-bold text-gray-700 mb-3">
+            <i data-lucide="arrow-right-circle" class="w-4 h-4 text-indigo-500"></i>
+            Próximos passos
+            <span class="text-gray-400 font-normal text-xs">(opcional)</span>
+        </label>
+        <textarea id="proximos_passos" name="proximos_passos" rows="3"
+                  placeholder="O que trabalhar na próxima sessão (opcional)"
+                  class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-gray-50 focus:bg-white resize-y text-base transition-all placeholder-gray-400">{{ (registro.proximos_passos if registro else fd.get('proximos_passos', '')) or '' }}</textarea>
+    </div>
+
+    <!-- Fotos da Sessão -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <h3 class="flex items-center gap-2 text-sm font-bold text-gray-700 mb-4">
+            <i data-lucide="camera" class="w-4 h-4 text-blue-500"></i>
+            Fotos da Sessão
+        </h3>
+
+        <label class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-blue-200 bg-blue-50/40 rounded-xl hover:bg-blue-50 transition-colors cursor-pointer text-center group">
+            <div class="w-12 h-12 bg-white rounded-full shadow-sm border border-blue-100 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
+                <i data-lucide="upload-cloud" class="w-5 h-5 text-blue-500"></i>
+            </div>
+            <span class="font-bold text-blue-800 text-sm">Toque para adicionar fotos</span>
+            <span class="text-xs text-blue-400 mt-0.5">JPG, PNG, WebP — máx. 5 MB cada</span>
+            <input type="file" name="fotos" multiple accept="image/jpeg,image/png,image/webp"
+                   class="hidden" @change="handleFiles">
+        </label>
+
+        <!-- Preview Upload List -->
+        <div class="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-3" x-show="previews.length > 0" x-cloak>
             <template x-for="p in previews" :key="p.name">
-                <div class="relative aspect-square rounded-lg overflow-hidden border border-gray-200">
+                <div class="aspect-square rounded-xl overflow-hidden border border-blue-100 relative group">
                     <img :src="p.url" class="w-full h-full object-cover">
-                    <div class="absolute inset-x-0 bottom-0 bg-black/50 text-[8px] text-white p-1 truncate" x-text="p.name"></div>
                 </div>
             </template>
         </div>
 
-        {% if registro and fotos %}
-        <!-- Fotos Já Salvas (Edição) -->
-        <div class="mt-6 border-t border-gray-100 pt-4">
-            <p class="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Fotos Salvas</p>
-            <div class="grid grid-cols-3 gap-2">
+        {% if fotos %}
+        <div class="mt-5 pt-4 border-t border-gray-100">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">{{ fotos | length }} foto(s) salva(s)</p>
+            <div class="grid grid-cols-3 sm:grid-cols-4 gap-2">
                 {% for foto in fotos %}
-                <div class="relative aspect-square rounded-lg overflow-hidden border border-gray-200 bg-gray-50 group">
+                <div class="relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-50 group">
                     <img src="{{ url_for('registros.servir_foto', foto_id=foto.id) }}" class="w-full h-full object-cover">
-                    <button type="submit" formaction="{{ url_for('registros.deletar_foto_view', foto_id=foto.id) }}" formnovalidate
-                            class="absolute top-1 right-1 p-1.5 bg-red-500 text-white rounded-md shadow opacity-0 group-hover:opacity-100 transition-opacity"
+                    <button type="submit"
+                            formaction="{{ url_for('registros.deletar_foto_view', foto_id=foto.id) }}"
+                            formnovalidate
+                            class="absolute top-1.5 right-1.5 w-7 h-7 flex items-center justify-center bg-red-500/90 hover:bg-red-600 text-white rounded-full shadow-sm opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity touch-manipulation"
                             onclick="return confirm('Remover esta foto?')">
-                        <i data-lucide="trash-2" class="w-3 h-3"></i>
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                     </button>
                 </div>
                 {% endfor %}
@@ -297,19 +131,41 @@ function atividadeSelector() {
         {% endif %}
     </div>
 
-    <!-- Botões Fixos Embaixo -->
-    <div class="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-gray-100 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] md:static md:bg-transparent md:border-none md:shadow-none md:p-0 z-20 flex flex-col-reverse md:flex-row gap-3 md:justify-end">
-        <a href="{{ url_for('alunos.ficha', aluno_id=aula.alunos.id) if aula and aula.alunos else url_for('agenda.index') }}"
-           class="w-full md:w-auto px-6 py-4 md:py-3 border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all text-center">
-            Cancelar
-        </a>
-        <button type="submit"
-                {% if registro %} formaction="{{ url_for('registros.salvar_edicao', registro_id=registro.id) }}" {% else %} formaction="{{ url_for('registros.criar') }}" {% endif %}
-                class="w-full md:w-auto px-8 py-4 md:py-3 bg-primary hover:bg-primaryHover text-white font-bold rounded-xl shadow-lg shadow-primary/30 transition-all flex items-center justify-center gap-2">
-            <i data-lucide="save" class="w-5 h-5"></i>
-            {{ 'Salvar Edição' if registro else 'Salvar Registro' }}
+    <!-- Botões fixos (Lado a lado, Mobile-first) -->
+    <div class="fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur-md border-t border-gray-100 shadow-[0_-8px_30px_rgba(0,0,0,0.07)] z-20 flex flex-row gap-3 md:static md:bg-transparent md:border-none md:shadow-none md:p-0">
+
+        <!-- Botão Primário: Salvar -->
+        <button type="submit" name="acao" value="salvar"
+                class="flex-1 px-2 py-4 min-h-[44px] sm:py-3.5 bg-primary hover:bg-primaryHover text-white font-bold rounded-2xl shadow-lg shadow-primary/30 transition-transform active:scale-[0.98] flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 touch-manipulation">
+            <i data-lucide="save" class="w-5 h-5 shrink-0"></i> 
+            <span class="text-[13px] sm:text-[15px] leading-tight text-center">Salvar</span>
         </button>
+
+        <!-- Botão Secundário: Salvar e Enviar para Família -->
+        <button type="submit" name="acao" value="enviar_familia"
+                class="flex-1 px-2 py-4 min-h-[44px] sm:py-3.5 bg-green-500 hover:bg-green-600 text-white font-bold rounded-2xl shadow-lg shadow-green-500/30 transition-transform active:scale-[0.98] flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 touch-manipulation">
+            <i data-lucide="message-circle" class="w-5 h-5 shrink-0"></i> 
+            <span class="text-[13px] sm:text-[15px] leading-tight text-center">Salvar e enviar para família</span>
+        </button>
+
     </div>
 
 </form>
+
+<script>
+function registroApp() {
+    return {
+        previews: [],
+        handleFiles(event) {
+            this.previews = [];
+            for (const file of event.target.files) {
+                if (!file.type.startsWith('image/')) continue;
+                const reader = new FileReader();
+                reader.onload = (e) => this.previews.push({ url: e.target.result, name: file.name });
+                reader.readAsDataURL(file);
+            }
+        }
+    };
+}
+</script>
 {% endblock %}

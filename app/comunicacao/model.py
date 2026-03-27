@@ -49,7 +49,7 @@ def listar_registros_periodo(
     aulas_map = {a["id"]: a for a in aulas}
 
     reg_res = (
-        sb.table("registros_aula")
+        sb.table("registros_sessao")
         .select("*, fotos_sessao(id, storage_path, legenda)")
         .eq("professor_id", professor_id)
         .eq("aluno_id", aluno_id)
@@ -71,6 +71,65 @@ def listar_registros_periodo(
 # ---------------------------------------------------------------------------
 # TEXTO WHATSAPP
 # ---------------------------------------------------------------------------
+
+def gerar_prefill_relatorio(registros: list, aluno_nome: str, periodo_ini: str, periodo_fim: str) -> dict:
+    """
+    Pré-preenche campos do relatório a partir dos registros do período.
+    Retrocompatível: usa descricao, conteudo_trabalhado (antigo), proximos_passos, observacoes_familia.
+    """
+    n = len(registros)
+    try:
+        d_ini = date.fromisoformat(periodo_ini).strftime("%d/%m/%Y")
+        d_fim = date.fromisoformat(periodo_fim).strftime("%d/%m/%Y")
+    except Exception:
+        d_ini, d_fim = periodo_ini, periodo_fim
+
+    # Resumo: lista por sessão com o que foi trabalhado
+    linhas_resumo = [f"Neste período ({d_ini} a {d_fim}) foram realizadas {n} sessão(ões) com {aluno_nome}.\n"]
+    for r in registros:
+        dh = r.get("data_hora", "")
+        try:
+            label = date.fromisoformat(dh[:10]).strftime("%d/%m")
+        except Exception:
+            label = ""
+        desc = (r.get("descricao") or r.get("conteudo_trabalhado") or "").strip()
+        if desc:
+            linhas_resumo.append(f"• {label}: {desc}")
+    resumo = "\n".join(linhas_resumo)
+
+    # Pontos fortes: proximos_passos de cada sessão (o que foi avançando)
+    fortes = []
+    for r in registros:
+        pp = (r.get("proximos_passos") or "").strip()
+        if pp:
+            dh = r.get("data_hora", "")
+            try:
+                label = date.fromisoformat(dh[:10]).strftime("%d/%m")
+            except Exception:
+                label = ""
+            fortes.append(f"• {label}: {pp}" if label else f"• {pp}")
+    pontos_fortes = "\n".join(fortes)
+
+    # Recomendações para casa: observacoes_familia de cada sessão
+    recs = []
+    for r in registros:
+        obs = (r.get("observacoes_familia") or "").strip()
+        if obs:
+            dh = r.get("data_hora", "")
+            try:
+                label = date.fromisoformat(dh[:10]).strftime("%d/%m")
+            except Exception:
+                label = ""
+            recs.append(f"• {label}: {obs}" if label else f"• {obs}")
+    recomendacoes = "\n".join(recs)
+
+    return {
+        "resumo":         resumo,
+        "pontos_fortes":  pontos_fortes,
+        "pontos_atencao": "",  # profissional preenche
+        "proximos_passos": recomendacoes,
+    }
+
 
 def gerar_texto_devolutiva(registros: list, aluno_nome: str, periodo_ini: str = "", periodo_fim: str = "") -> str:
     linhas = [f"📚 *DEVOLUTIVA — {aluno_nome.upper()}*", ""]
@@ -110,7 +169,8 @@ def gerar_texto_devolutiva(registros: list, aluno_nome: str, periodo_ini: str = 
 
 def gerar_texto_relatorio(
     aluno_nome: str, periodo_ini: str, periodo_fim: str,
-    titulo: str, pontos_fortes: str, pontos_atencao: str, proximos_passos: str
+    titulo: str, pontos_fortes: str, pontos_atencao: str, proximos_passos: str,
+    resumo: str = "",
 ) -> str:
     try:
         d_ini = date.fromisoformat(periodo_ini).strftime("%d/%m/%Y")
@@ -124,12 +184,14 @@ def gerar_texto_relatorio(
         f"📅 Período: {d_ini} a {d_fim}",
         "",
     ]
+    if resumo:
+        linhas += ["*📝 RESUMO:*", resumo, ""]
     if pontos_fortes:
-        linhas += ["*💪 PONTOS FORTES:*", pontos_fortes, ""]
+        linhas += ["*💪 ÁREAS AVANÇADAS:*", pontos_fortes, ""]
     if pontos_atencao:
-        linhas += ["*⚠️ PONTOS DE ATENÇÃO:*", pontos_atencao, ""]
+        linhas += ["*⚠️ ÁREAS DE ATENÇÃO:*", pontos_atencao, ""]
     if proximos_passos:
-        linhas += ["*🎯 RECOMENDAÇÕES:*", proximos_passos, ""]
+        linhas += ["*🏠 RECOMENDAÇÕES PARA CASA:*", proximos_passos, ""]
 
     return "\n".join(linhas)
 

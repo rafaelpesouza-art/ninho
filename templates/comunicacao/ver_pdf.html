@@ -28,6 +28,9 @@
     
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
     <style>
         body { 
@@ -68,22 +71,13 @@
 </head>
 <body class="text-gray-800 antialiased font-sans flex flex-col min-h-screen">
 
-    <!-- Floating Action Bar (Não sai na impressão) -->
-    <div class="fixed top-4 left-0 right-0 z-50 flex justify-center no-print px-4">
-        <div class="bg-white/90 backdrop-blur-md px-4 py-3 sm:px-6 rounded-full shadow-xl border border-gray-200 flex items-center justify-between w-full max-w-sm sm:max-w-md">
-            <a href="{{ url_for('comunicacao.index') }}" class="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-gray-800 transition-colors">
-                <i data-lucide="arrow-left" class="w-4 h-4"></i> <span class="hidden sm:inline">Voltar</span>
-            </a>
-            
-            <button onclick="window.print()" class="flex items-center gap-2 text-sm font-bold bg-gray-900 text-white px-6 py-2.5 rounded-full hover:scale-105 active:scale-95 transition-all shadow-md">
-                <i data-lucide="printer" class="w-4 h-4"></i>
-                Imprimir / PDF
-            </button>
-        </div>
-    </div>
+    <!-- Ação de Voltar (Não sai na impressão) -->
+    <a href="{{ url_for('alunos.ficha', aluno_id=comm.aluno_id) if comm.aluno_id else url_for('comunicacao.index') }}" class="fixed top-4 left-4 z-50 no-print w-10 h-10 bg-white/90 backdrop-blur-md rounded-full shadow-md border border-gray-200 flex items-center justify-center text-gray-400 hover:text-gray-800 hover:scale-105 transition-all">
+        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+    </a>
 
-    <!-- Padding extra no topo do Body apenas em tela para não ocultar no header floating -->
-    <div class="pt-20 sm:pt-24 print:pt-0 flex-1">
+    <!-- Padding extra no topo/bot para Mobile -->
+    <div class="pt-10 pb-44 sm:pb-32 sm:pt-14 print:pt-0 print:pb-0 flex-1">
         
         <div class="a4-page overflow-hidden print:overflow-visible">
             
@@ -110,7 +104,7 @@
                 </div>
 
                 <div class="text-left sm:text-right bg-gray-50 sm:bg-transparent p-3 sm:p-0 rounded-xl">
-                    <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Aluno(a)</p>
+                    <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Paciente(a)</p>
                     <p class="text-lg font-bold text-gray-800 leading-none">{{ comm.alunos.nome if comm.alunos else '—' }}</p>
                 </div>
 
@@ -228,8 +222,59 @@
 
     </div>
 
+    <!-- Bottom Action Bar (Mobile-first) -->
+    <div class="fixed bottom-0 left-0 right-0 z-50 p-4 bg-white/90 backdrop-blur-md border-t border-gray-200 shadow-[0_-8px_30px_rgba(0,0,0,0.07)] no-print flex flex-col items-center justify-center pt-5 pb-5" x-data="pdfActions()">
+        <div class="w-full max-w-2xl flex flex-col sm:flex-row gap-3">
+            
+            <button @click="gerarPdf()" class="flex-1 flex justify-center items-center gap-2 px-4 py-4 sm:py-3.5 bg-gray-900 hover:bg-black text-white font-bold rounded-2xl shadow-lg shadow-gray-200 transition-transform active:scale-[0.98] touch-manipulation text-sm sm:text-base">
+                <i data-lucide="printer" class="w-5 h-5"></i> Gerar PDF
+            </button>
+            
+            <div class="flex gap-3 flex-col sm:flex-row flex-[1.5]">
+                <button @click="copiarWa()" class="flex-1 flex justify-center items-center gap-2 px-4 py-3.5 bg-green-500 hover:bg-green-600 text-white font-bold rounded-2xl shadow-md shadow-green-500/20 transition-transform active:scale-[0.98] touch-manipulation text-sm">
+                    <i data-lucide="message-circle" class="w-4 h-4"></i> 
+                    <span x-text="copiado ? 'Copiado!' : 'Copiar p/ WhatsApp'"></span>
+                </button>
+                
+                <button @click="marcarEnviado()" class="flex-1 flex justify-center items-center gap-2 px-4 py-3.5 border-2 border-gray-200 text-gray-600 hover:bg-gray-50 font-bold rounded-2xl transition-all touch-manipulation text-sm"
+                        :class="enviado ? 'border-primary text-primary bg-primaryLight' : ''">
+                    <i data-lucide="check-circle" class="w-4 h-4" :class="enviado ? 'fill-primary text-white' : ''"></i>
+                    <span x-text="enviado ? 'Enviado ✔' : 'Marcar como enviado'"></span>
+                </button>
+            </div>
+            
+        </div>
+    </div>
+
     <!-- Init -->
     <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('pdfActions', () => ({
+                copiado: false,
+                enviado: false,
+                textoRaw: {{ comm.texto_whatsapp | tojson | safe if comm.texto_whatsapp else '""' }},
+                
+                gerarPdf() {
+                    window.print();
+                },
+                
+                async copiarWa() {
+                    let msg = this.textoRaw || "Segue o Relatório de Evolução atualizado em anexo! Qualquer dúvida, fico à disposição.";
+                    try {
+                        await navigator.clipboard.writeText(msg);
+                        this.copiado = true;
+                        setTimeout(() => this.copiado = false, 2500);
+                    } catch (err) {
+                        alert("Não foi possível copiar o texto automaticamente.");
+                    }
+                },
+                
+                marcarEnviado() {
+                    this.enviado = true;
+                }
+            }));
+        });
+
         lucide.createIcons();
         if (window.location.search.includes('print=true')) {
             window.addEventListener('load', () => setTimeout(() => window.print(), 800));

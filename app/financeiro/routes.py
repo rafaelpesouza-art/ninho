@@ -222,6 +222,14 @@ def fatura_detalhe(fatura_id):
     if tel and not tel.startswith("55"):
         tel = "55" + tel
 
+    # Tipos distintos de sessão (para exibir label avaliação/intervenção no card)
+    fases_presentes = {
+        (a.get("alunos") or {}).get("fase_atual")
+        for a in aulas
+        if (a.get("alunos") or {}).get("fase_atual") in ("avaliacao", "intervencao")
+    }
+    tem_tipos_distintos = len(fases_presentes) > 1
+
     import urllib.parse
     texto_wa_encoded = urllib.parse.quote(texto_wa)
 
@@ -233,6 +241,7 @@ def fatura_detalhe(fatura_id):
         texto_wa=texto_wa,
         texto_wa_encoded=texto_wa_encoded,
         tel_wa=tel,
+        tem_tipos_distintos=tem_tipos_distintos,
         fmt_valor=fmt_valor,
         MESES_PT=MESES_PT,
     )

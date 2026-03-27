@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+{% block title %}Anamnese – {{ aluno.nome }}{% endblock %}
+{% set active_module = 'alunos' %}
+
+{% block page_header %}
+<div class="flex items-center justify-between mb-2 print:hidden">
+    <div class="flex items-center gap-3">
+        <a href="{{ url_for('alunos.ficha', aluno_id=aluno.id, tab='clinico') }}"
+           class="p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50">
+           <i data-lucide="arrow-left" class="w-6 h-6"></i>
+        </a>
+        <div>
+            <p class="text-xs text-gray-500 font-semibold">{{ aluno.nome }}</p>
+            <h1 class="text-2xl font-bold text-gray-800 tracking-tight">Anamnese</h1>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto pb-24 md:pb-6 space-y-6" x-data="anamneseApp()">
+
+    <!-- Form -->
+    <form @submit.prevent="salvar" class="space-y-6 print:hidden">
+        {% if anamnese %}
+        <input type="hidden" name="anamnese_id" value="{{ anamnese.id }}">
+        {% endif %}
+
+        <!-- Top Save Button (Mobile sticky mostly or just top) -->
+        <div class="flex items-center justify-between bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-4">
+            <div class="flex flex-col">
+                <span class="text-sm font-bold text-gray-800">Status</span>
+                <span class="text-xs text-gray-500" x-text="statusTexto"></span>
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="window.print()" x-show="_anamneseExists"
+                        class="px-4 py-2.5 bg-white text-gray-700 font-bold rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 shadow-sm touch-manipulation">
+                    <i data-lucide="file-down" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Exportar PDF</span>
+                </button>
+                <button type="submit" :disabled="salvando"
+                        class="px-5 py-2.5 bg-primary text-white font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center gap-2 shadow-sm disabled:opacity-50 touch-manipulation">
+                    <i data-lucide="save" class="w-4 h-4" x-show="!salvando"></i>
+                    <i data-lucide="loader-2" class="w-4 h-4 animate-spin" x-show="salvando" x-cloak></i>
+                    <span x-text="salvando ? 'Salvando...' : 'Salvar'"></span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Cabeçalho (Sempre visível) -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="bg-primaryLight/30 px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+                <i data-lucide="calendar-check" class="w-5 h-5 text-primary"></i>
+                <h3 class="font-bold text-gray-800">Dados da Anamnese</h3>
+            </div>
+            <div class="p-6">
+                <label class="block text-sm font-bold text-gray-700 mb-1.5">Data de Realização</label>
+                <input type="date" x-model="dataRealizacao"
+                       class="w-full sm:w-48 px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-base bg-gray-50 focus:bg-white touch-manipulation">
+            </div>
+        </div>
+
+        <!-- Seleção de Modo -->
+        <div x-show="modo === null" class="grid grid-cols-1 sm:grid-cols-2 gap-4" x-transition>
+            <!-- Opção Template -->
+            <button type="button" @click="setModo('template')"
+                    class="bg-white hover:bg-gray-50 border-2 border-gray-100 hover:border-primary/50 rounded-2xl p-6 text-center transition-all group flex flex-col items-center gap-3 touch-manipulation">
+                <div class="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center">
+                    <i data-lucide="layout-template" class="w-7 h-7 text-blue-500 group-hover:scale-110 transition-transform"></i>
+                </div>
+                <div>
+                    <h4 class="font-bold text-gray-800 text-lg group-hover:text-primary transition-colors">Estruturada</h4>
+                    <p class="text-sm text-gray-500 mt-1">Usar seções (ex: Histórico, Família).</p>
+                    {% if template_padrao %}
+                    <p class="text-xs text-green-600 font-bold mt-2 bg-green-50 rounded-full px-2 py-1 inline-block border border-green-200">Template Padrão Disponível</p>
+                    {% endif %}
+                </div>
+            </button>
+
+            <!-- Opção Livre -->
+            <button type="button" @click="setModo('livre')"
+                    class="bg-white hover:bg-gray-50 border-2 border-gray-100 hover:border-primary/50 rounded-2xl p-6 text-center transition-all group flex flex-col items-center gap-3 touch-manipulation">
+                <div class="w-14 h-14 rounded-full bg-amber-50 flex items-center justify-center">
+                    <i data-lucide="type" class="w-7 h-7 text-amber-500 group-hover:scale-110 transition-transform"></i>
+                </div>
+                <div>
+                    <h4 class="font-bold text-gray-800 text-lg group-hover:text-primary transition-colors">Texto Livre</h4>
+                    <p class="text-sm text-gray-500 mt-1">Anotar tudo em um único campo grande.</p>
+                </div>
+            </button>
+        </div>
+
+        <!-- Área Modo Estruturado -->
+        <div x-show="modo === 'template'" x-cloak class="space-y-4" x-transition>
+            <div class="flex items-center justify-between">
+                <h3 class="font-bold text-gray-800 flex items-center gap-2">
+                    <i data-lucide="layout-list" class="w-5 h-5 text-primary"></i> Seções da Anamnese
+                </h3>
+                <div class="flex items-center gap-2">
+                    <button type="button" @click="modo = null" class="text-sm text-gray-500 hover:text-gray-800 font-semibold px-2">Trocar</button>
+                    <button type="button" @click="addSecao()"
+                            class="flex items-center gap-1.5 px-3 py-1.5 bg-primaryLight text-primary text-xs font-bold rounded-lg hover:bg-primary/20 transition-colors touch-manipulation">
+                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add
+                    </button>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <template x-for="(s, i) in secoes" :key="i">
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden" x-data="{ open: true }">
+                        <!-- Header da Seção -->
+                        <div class="px-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+                            <!-- Toggle Button that covers most of the header for easy mobile tapping -->
+                            <button type="button" @click="open = !open" class="flex-1 py-3 flex items-center gap-2 touch-manipulation text-left">
+                                <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform" :class="open ? 'rotate-180' : ''"></i>
+                                <span class="font-bold text-gray-700 truncate" x-text="s.titulo || 'Seção Sem Título'"></span>
+                            </button>
+                            
+                            <!-- Ações: Move e Delete -->
+                            <div class="flex items-center shrink-0">
+                                <button type="button" @click="moveSecao(i, -1)" :disabled="i === 0"
+                                        class="p-2 text-gray-400 hover:text-primary disabled:opacity-30 touch-manipulation">
+                                    <i data-lucide="arrow-up" class="w-4 h-4"></i>
+                                </button>
+                                <button type="button" @click="moveSecao(i, 1)" :disabled="i === secoes.length - 1"
+                                        class="p-2 text-gray-400 hover:text-primary disabled:opacity-30 touch-manipulation">
+                                    <i data-lucide="arrow-down" class="w-4 h-4"></i>
+                                </button>
+                                <div class="w-px h-4 bg-gray-200 mx-1"></div>
+                                <button type="button" @click="removeSecao(i)"
+                                        class="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg touch-manipulation">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Corpo da Seção -->
+                        <div x-show="open" x-collapse>
+                            <div class="p-4 space-y-3 bg-white">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Título da Seção</label>
+                                    <input type="text" x-model="s.titulo" placeholder="Ex: Histórico Médico, Gestação..."
+                                           class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 font-bold text-gray-800 bg-gray-50 focus:bg-white touch-manipulation">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Conteúdo</label>
+                                    <textarea x-model="s.texto" rows="4" placeholder="Descreva os detalhes desta seção..."
+                                              class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 text-base bg-gray-50 focus:bg-white resize-y touch-manipulation"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+                <p x-show="secoes.length === 0" class="text-sm font-semibold text-gray-400 text-center py-6 border-2 border-dashed border-gray-100 rounded-2xl bg-white">
+                    Nenhuma seção estruturada. Clique em "Add" para criar tópicos.
+                </p>
+            </div>
+        </div>
+
+        <!-- Área Modo Livre -->
+        <div x-show="modo === 'livre'" x-cloak class="space-y-4" x-transition>
+            <div class="flex items-center justify-between">
+                <h3 class="font-bold text-gray-800 flex items-center gap-2">
+                    <i data-lucide="type" class="w-5 h-5 text-amber-500"></i> Texto Livre
+                </h3>
+                <button type="button" @click="modo = null" class="text-sm text-gray-500 hover:text-gray-800 font-semibold px-2">Trocar modo</button>
+            </div>
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="p-6">
+                    <textarea x-model="conteudoLivre" rows="12" placeholder="Descreva aqui todo o conteúdo livre que puder captar em sessão..."
+                              class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400 text-base bg-gray-50 focus:bg-white resize-y touch-manipulation"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Observações Finais (Sempre presentes se modo != null) -->
+        <div x-show="modo !== null" x-cloak class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="message-square" class="w-5 h-5 text-gray-400"></i>
+                    <h3 class="font-bold text-gray-800">Notas Adicionais</h3>
+                </div>
+                <span class="text-xs font-bold text-gray-400 uppercase bg-gray-100 px-2 py-1 rounded-full">Interno</span>
+            </div>
+            <div class="p-6">
+                <textarea x-model="observacoes" rows="3" placeholder="Anotações privadas para acompanhamento..."
+                          class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 text-base bg-gray-50 focus:bg-white resize-y touch-manipulation"></textarea>
+            </div>
+        </div>
+
+        <div x-show="modo !== null" class="flex gap-3 pt-2">
+            <button type="button" onclick="window.print()" x-show="_anamneseExists"
+                    class="px-6 py-3 bg-white text-gray-700 font-bold rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 shadow-sm touch-manipulation">
+                <i data-lucide="file-down" class="w-5 h-5"></i>
+                <span class="hidden sm:inline">Exportar PDF</span>
+                <span class="sm:hidden">PDF</span>
+            </button>
+            <button type="submit" :disabled="salvando"
+                    class="flex-1 px-6 py-3 bg-primary text-white font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 touch-manipulation">
+                <i data-lucide="save" class="w-4 h-4" x-show="!salvando"></i>
+                <i data-lucide="loader-2" class="w-4 h-4 animate-spin" x-show="salvando" x-cloak></i>
+                <span x-text="salvando ? 'Salvando...' : 'Salvar Alterações'"></span>
+            </button>
+        </div>
+    </form>
+
+    <!-- ================= PRINT CONTAINER ================= -->
+    <div class="hidden print:block print:w-full print:bg-white text-gray-800 font-sans" aria-hidden="true">
+        
+        <!-- HEADER -->
+        <div class="mb-8 text-center border-b-2 border-primary/20 pb-6 mt-4">
+            <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 overflow-hidden border-2 border-primary/20">
+                {% if session.get('user_logo_url') %}
+                <img src="{{ session.get('user_logo_url') }}" class="w-full h-full object-contain" alt="Logo">
+                {% else %}
+                <div class="w-full h-full bg-primary text-white flex items-center justify-center">
+                    <i data-lucide="graduation-cap" class="w-8 h-8"></i>
+                </div>
+                {% endif %}
+            </div>
+            <h2 class="text-2xl font-black text-primary uppercase tracking-widest">{{ session.get('user_nome', 'Profissional') }}</h2>
+            <h3 class="text-lg font-bold text-gray-500 mt-1 uppercase tracking-widest">Anamnese</h3>
+        </div>
+
+        <!-- DADOS PACIENTE -->
+        <div class="flex justify-between items-end mb-10 pb-4 border-b border-gray-100">
+            <div>
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Paciente</p>
+                <p class="text-xl font-black text-gray-800">{{ aluno.nome }}</p>
+            </div>
+            <div class="text-right">
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Data de Realização</p>
+                <p class="text-lg font-bold text-gray-800" x-text="dataRealizacao ? dataRealizacao.split('-').reverse().join('/') : '—'"></p>
+            </div>
+        </div>
+
+        <!-- CONTEÚDO LIVRE -->
+        <div x-show="modo === 'livre'">
+            <p class="whitespace-pre-wrap text-base font-medium leading-relaxed text-gray-700 text-justify" x-text="conteudoLivre"></p>
+        </div>
+
+        <!-- CONTEÚDO SEÇÕES -->
+        <div x-show="modo === 'template'" class="space-y-8">
+            <template x-for="(s, i) in secoes" :key="i">
+                <div style="page-break-inside: avoid;">
+                    <h4 class="text-lg font-bold text-primary border-l-4 border-primary pl-3 mb-3 bg-primaryLight/10 py-1" x-text="s.titulo"></h4>
+                    <p class="whitespace-pre-wrap text-base font-medium leading-relaxed text-gray-700 pl-4 text-justify" x-text="s.texto"></p>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+
+<script>
+const _preSecoes = {{ (pre_secoes or (anamnese.secoes if anamnese and anamnese.secoes else [])) | tojson }};
+const _conteudoLivre = {{ (anamnese.conteudo if anamnese and anamnese.conteudo else '') | tojson }};
+const _observacoes = {{ (anamnese.observacoes if anamnese and anamnese.observacoes else '') | tojson }};
+const _dataRea = '{{ anamnese.data_realizacao if anamnese and anamnese.data_realizacao else '' }}';
+const _anamneseExists = {{ 'true' if anamnese else 'false' }};
+
+function anamneseApp() {
+    let initModo = null;
+    if (_preSecoes.length > 0) initModo = 'template';
+    else if (_conteudoLivre && _conteudoLivre.trim() !== '') initModo = 'livre';
+
+    return {
+        modo: initModo,
+        salvando: false,
+        statusTexto: _anamneseExists ? 'Edição' : 'Novo rascunho',
+        dataRealizacao: _dataRea || new Date().toISOString().split('T')[0],
+        secoes: JSON.parse(JSON.stringify(_preSecoes)),
+        conteudoLivre: _conteudoLivre,
+        observacoes: _observacoes,
+
+        setModo(m) {
+            this.modo = m;
+        },
+        addSecao() {
+            this.secoes.push({ titulo: '', texto: '' });
+        },
+        removeSecao(index) {
+            if (confirm('Tem certeza que deseja remover esta seção?')) {
+                this.secoes.splice(index, 1);
+            }
+        },
+        moveSecao(index, dir) {
+            if (index + dir >= 0 && index + dir < this.secoes.length) {
+                const item = this.secoes.splice(index, 1)[0];
+                this.secoes.splice(index + dir, 0, item);
+            }
+        },
+        async salvar() {
+            if (this.salvando) return;
+            this.salvando = true;
+            this.statusTexto = 'Sincronizando...';
+            
+            const fd = new FormData();
+            {% if anamnese %}
+            fd.append('anamnese_id', '{{ anamnese.id }}');
+            {% endif %}
+            fd.append('data_realizacao', this.dataRealizacao);
+            fd.append('observacoes', this.observacoes || '');
+            
+            if (this.modo === 'template') {
+                fd.append('secoes_json', JSON.stringify(this.secoes));
+                fd.append('conteudo', '');
+            } else if (this.modo === 'livre') {
+                fd.append('secoes_json', '[]');
+                fd.append('conteudo', this.conteudoLivre || '');
+            }
+            
+            try {
+                const res = await fetch("{{ url_for('clinico.salvar_anamnese_route', aluno_id=aluno.id) }}", {
+                    method: 'POST',
+                    body: fd,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                if (res.ok) {
+                    this.statusTexto = 'Salvo com sucesso!';
+                    setTimeout(() => { if(this.statusTexto === 'Salvo com sucesso!') this.statusTexto = 'Edição'; }, 2000);
+                } else {
+                    this.statusTexto = 'Falha ao salvar.';
+                }
+            } catch (e) {
+                console.error(e);
+                this.statusTexto = 'Erro de rede.';
+            } finally {
+                this.salvando = false;
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

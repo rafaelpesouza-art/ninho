@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}Alunos - Ninho{% endblock %}
+{% block title %}Pacientes - Ninho{% endblock %}
 
 {% block page_header %}
 <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
     <div>
-        <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 tracking-tight">Alunos</h1>
-        <p class="text-gray-500 mt-1">{{ alunos|length }} aluno(s) encontrado(s)</p>
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 tracking-tight">Pacientes</h1>
+        <p class="text-gray-500 mt-1">{{ alunos|length }} paciente(s) encontrado(s)</p>
     </div>
     <div class="flex items-center gap-3">
         <a href="{{ url_for('alunos.novo') }}" class="flex items-center gap-2 bg-primary hover:bg-primaryHover text-white px-5 py-2.5 rounded-xl font-bold shadow-sm transition-all focus:ring-4 focus:ring-primaryLight outline-none">
             <i data-lucide="plus" class="w-5 h-5"></i>
-            <span class="hidden sm:inline">Novo Aluno</span>
+            <span class="hidden sm:inline">Novo Paciente</span>
         </a>
     </div>
 </div>
@@ -128,7 +128,7 @@
                   class="mt-3" onclick="event.stopPropagation()">
                 <button type="submit"
                         class="w-full text-xs font-bold py-2 rounded-xl bg-green-50 text-green-700 hover:bg-green-100 transition-colors border border-green-200">
-                    Reativar aluno
+                    Reativar paciente
                 </button>
             </form>
             {% endif %}
@@ -143,18 +143,18 @@
             <div class="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-3">
                 <i data-lucide="users" class="w-8 h-8 text-gray-400"></i>
             </div>
-            <h3 class="text-lg font-bold text-gray-800 mb-1">Nenhum aluno encontrado</h3>
+            <h3 class="text-lg font-bold text-gray-800 mb-1">Nenhum paciente encontrado</h3>
             <p class="text-gray-500 text-sm mb-4">
                 {% if mostrar_inativos %}
-                Você ainda não tem alunos inativos cadastrados.
+                Você ainda não tem pacientes inativos cadastrados.
                 {% else %}
-                Nenhum aluno ativo encontrado. Adicione alunos para começar a gerenciar suas aulas.
+                Nenhum paciente ativo encontrado. Adicione pacientes para começar a gerenciar suas aulas.
                 {% endif %}
             </p>
             {% if not mostrar_inativos %}
             <a href="{{ url_for('alunos.novo') }}" class="text-primary font-bold hover:text-primaryHover transition-colors flex items-center gap-1">
                 <i data-lucide="plus" class="w-4 h-4"></i>
-                Adicionar Aluno
+                Adicionar Paciente
             </a>
             {% endif %}
         </div>
@@ -165,7 +165,7 @@
     {% if alunos %}
     <div x-cloak x-show="search !== '' && !document.querySelector('.grid > a[x-show]:not([style*=\'display: none\'])')" 
          class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center mt-4">
-        <p class="text-gray-500">Nenhum aluno encontrado para a busca "<span class="font-bold text-gray-800" x-text="search"></span>".</p>
+        <p class="text-gray-500">Nenhum paciente encontrado para a busca "<span class="font-bold text-gray-800" x-text="search"></span>".</p>
     </div>
     {% endif %}
 

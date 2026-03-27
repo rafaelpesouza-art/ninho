@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ 'Editar' if aluno else 'Novo' }} Aluno - Ninho{% endblock %}
+{% block title %}{{ 'Editar' if aluno else 'Novo' }} Paciente - Ninho{% endblock %}
 
 {% block page_header %}
 <div class="flex items-center justify-between mb-2">
@@ -8,13 +8,14 @@
            class="p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50">
            <i data-lucide="arrow-left" class="w-6 h-6"></i>
         </a>
-        <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 tracking-tight">{{ 'Editar' if aluno else 'Novo' }} Aluno</h1>
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 tracking-tight">{{ 'Editar' if aluno else 'Novo' }} Paciente</h1>
     </div>
 </div>
 {% endblock %}
 
 {% block content %}
 <form method="POST"
+      enctype="multipart/form-data"
       action="{{ url_for('alunos.salvar_edicao', aluno_id=aluno.id) if aluno else url_for('alunos.criar') }}"
       class="max-w-3xl mx-auto space-y-6 pb-24 md:pb-6">
 
@@ -22,15 +23,38 @@
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div class="bg-primaryLight/30 px-6 py-4 border-b border-gray-100 flex items-center gap-2">
             <i data-lucide="user" class="w-5 h-5 text-primary"></i>
-            <h3 class="font-bold text-gray-800">Dados do Aluno</h3>
+            <h3 class="font-bold text-gray-800">Dados do Paciente</h3>
         </div>
         <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div class="md:col-span-2">
-                <label class="block text-sm font-bold text-gray-700 mb-1.5">Nome Completo *</label>
-                <input type="text" name="nome" required
-                       value="{{ aluno.nome if aluno else '' }}"
-                       placeholder="Ex: João da Silva"
-                       class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-base transition-all bg-gray-50 focus:bg-white placeholder-gray-400">
+            <div class="md:col-span-2 flex flex-col sm:flex-row gap-4 items-start">
+                <!-- Foto de Perfil -->
+                <div class="shrink-0" x-data="{ preview: '{{ aluno.foto_url if aluno and aluno.foto_url else '' }}' }">
+                    <label class="block text-sm font-bold text-gray-700 mb-1.5">Foto</label>
+                    <div class="relative w-20 h-20">
+                        <template x-if="preview">
+                            <img :src="preview" class="w-20 h-20 rounded-xl object-cover border border-gray-200 shadow-sm">
+                        </template>
+                        <template x-if="!preview">
+                            <div class="w-20 h-20 rounded-xl bg-primaryLight flex items-center justify-center text-primary text-2xl font-bold border border-gray-200">
+                                {{ (aluno.nome[:1] | upper) if aluno else '?' }}
+                            </div>
+                        </template>
+                        <label class="absolute inset-0 flex items-center justify-center bg-black/30 rounded-xl opacity-0 hover:opacity-100 cursor-pointer transition-opacity">
+                            <i data-lucide="camera" class="w-5 h-5 text-white"></i>
+                            <input type="file" name="foto_file" accept="image/*" class="sr-only"
+                                   @change="const f=$event.target.files[0]; if(f){const r=new FileReader();r.onload=e=>preview=e.target.result;r.readAsDataURL(f)}">
+                        </label>
+                    </div>
+                    <p class="text-[10px] text-gray-400 mt-1 text-center">JPG/PNG</p>
+                </div>
+                <!-- Nome -->
+                <div class="flex-1 w-full">
+                    <label class="block text-sm font-bold text-gray-700 mb-1.5">Nome Completo *</label>
+                    <input type="text" name="nome" required
+                           value="{{ aluno.nome if aluno else '' }}"
+                           placeholder="Ex: João da Silva"
+                           class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-base transition-all bg-gray-50 focus:bg-white placeholder-gray-400">
+                </div>
             </div>
 
             <div>
@@ -52,7 +76,7 @@
                 <label class="block text-sm font-bold text-gray-700 mb-1.5">Email</label>
                 <input type="email" name="email"
                        value="{{ aluno.email if aluno else '' }}"
-                       placeholder="aluno@email.com"
+                       placeholder="paciente@email.com"
                        class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-base transition-all bg-gray-50 focus:bg-white placeholder-gray-400">
             </div>
         </div>
@@ -69,9 +93,27 @@
                 <label class="block text-sm font-bold text-gray-700 mb-1.5">Nome do Responsável</label>
                 <input type="text" name="responsavel"
                        value="{{ aluno.responsavel if aluno else '' }}"
-                       placeholder="Deixe em branco se o aluno for maior de idade"
+                       placeholder="Deixe em branco se o paciente for maior de idade"
                        class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-base transition-all bg-gray-50 focus:bg-white placeholder-gray-400">
             </div>
+
+            {% if aluno %}
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1.5">Fase Clínica</label>
+                <div class="relative">
+                    <select name="fase_atual"
+                            class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-base transition-all bg-gray-50 focus:bg-white appearance-none pr-10">
+                        {% set fases = [('anamnese','Anamnese'),('avaliacao','Avaliação'),('intervencao','Intervenção'),('alta','Alta')] %}
+                        {% for val, label in fases %}
+                        <option value="{{ val }}" {% if aluno.fase_atual == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-gray-400">
+                        <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
 
             <div class="md:col-span-2">
                 <label class="block text-sm font-bold text-gray-700 mb-1.5">
@@ -81,7 +123,7 @@
                 <div class="relative">
                     <select name="aluno_vinculo_id"
                             class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-base transition-all bg-gray-50 focus:bg-white appearance-none pr-10">
-                        <option value="">Nenhum (aluno sem irmãos matriculados)</option>
+                        <option value="">Nenhum (paciente sem irmãos matriculados)</option>
                         {% for c in alunos_cadastrados %}
                             <option value="{{ c.id }}" {% if aluno and aluno.familia_id == c.familia_id and c.familia_id %}selected{% endif %}>
                                 {{ c.nome }}
@@ -96,48 +138,7 @@
         </div>
     </div>
 
-    <!-- Seção 3: Perfil Acadêmico (Planejamento) -->
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div class="bg-primaryLight/30 px-6 py-4 border-b border-gray-100 flex items-center gap-2">
-            <i data-lucide="book-open" class="w-5 h-5 text-primary"></i>
-            <h3 class="font-bold text-gray-800">Perfil Acadêmico <span class="text-xs text-gray-400 font-normal ml-1">(Para sugestões automáticas)</span></h3>
-        </div>
-        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-                <label class="block text-sm font-bold text-gray-700 mb-1.5 flex items-center gap-1.5">Matéria Foco de Reforço</label>
-                <div class="relative">
-                    <select name="materia_foco"
-                            class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-base transition-all bg-gray-50 focus:bg-white appearance-none pr-10">
-                        <option value="">Geral / Multidisciplinar</option>
-                        {% for m in materias %}
-                        <option value="{{ m }}" {% if aluno and aluno.materia_foco == m %}selected{% endif %}>{{ m }}</option>
-                        {% endfor %}
-                    </select>
-                    <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-gray-400">
-                        <i data-lucide="chevron-down" class="w-4 h-4"></i>
-                    </div>
-                </div>
-            </div>
-
-            <div>
-                <label class="block text-sm font-bold text-gray-700 mb-1.5 flex items-center gap-1.5">Série Escolar Atual</label>
-                <div class="relative">
-                    <select name="serie"
-                            class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-base transition-all bg-gray-50 focus:bg-white appearance-none pr-10">
-                        <option value="">Não especificada</option>
-                        {% for s in series %}
-                        <option value="{{ s }}" {% if aluno and aluno.serie == s %}selected{% endif %}>{{ s }}</option>
-                        {% endfor %}
-                    </select>
-                    <div class="absolute inset-y-0 right-0 flex items-center px-4 pointer-events-none text-gray-400">
-                        <i data-lucide="chevron-down" class="w-4 h-4"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Seção 4: Configuração de Aulas -->
+    <!-- Seção 3: Configuração de Aulas -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div class="bg-primaryLight/30 px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <div class="flex items-center gap-2">
@@ -155,7 +156,7 @@
             {% if not aluno %}
             <div class="mb-5 bg-blue-50/50 border border-blue-100 rounded-xl p-4 flex gap-3 text-sm text-blue-800">
                 <i data-lucide="info" class="w-5 h-5 text-blue-500 shrink-0 mt-0.5"></i>
-                <p>Se você definir um <strong>Dia</strong> e <strong>Horário</strong>, o sistema vai gerar automaticamente as aulas deste aluno para o restante do mês.</p>
+                <p>Se você definir um <strong>Dia</strong> e <strong>Horário</strong>, o sistema vai gerar automaticamente as aulas deste paciente para o restante do mês.</p>
             </div>
             {% endif %}
 

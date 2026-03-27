@@ -6,7 +6,18 @@ from .model import (
 )
 from ..extensions import get_supabase
 from ..auth.decorators import login_required
-from ..planejamento.model import MATERIAS, SERIES
+
+
+def _upload_foto_aluno(professor_id, aluno_id, file) -> str | None:
+    """Tenta fazer upload da foto de perfil. Retorna URL ou None."""
+    if not file or not getattr(file, "filename", ""):
+        return None
+    try:
+        from ..clinico.model import fazer_upload_avatar
+        return fazer_upload_avatar(professor_id, aluno_id, file)
+    except Exception as e:
+        flash(f"Foto não enviada: {e}", "warning")
+        return None
 
 DIAS_SEMANA = [
     (0, "Segunda-feira"),
@@ -63,8 +74,7 @@ def lista():
 def novo():
     sb = _sb()
     alunos_lista = listar_alunos(sb, session["user_id"])
-    return render_template("alunos/form.html", aluno=None, dias_semana=DIAS_SEMANA, alunos_cadastrados=alunos_lista,
-                           materias=MATERIAS, series=SERIES)
+    return render_template("alunos/form.html", aluno=None, dias_semana=DIAS_SEMANA, alunos_cadastrados=alunos_lista)
 
 
 @alunos_bp.route("/novo", methods=["POST"])
@@ -74,18 +84,24 @@ def criar():
     if not nome:
         flash("O nome do aluno é obrigatório.", "danger")
         return render_template("alunos/form.html", aluno=None, dias_semana=DIAS_SEMANA,
-                               form_data=request.form, materias=MATERIAS, series=SERIES)
+                               form_data=request.form)
 
     sb = _sb()
     professor_id = session["user_id"]
     try:
-        aluno = criar_aluno(sb, professor_id, request.form)
+        dados = dict(request.form)
+        # Upload foto se enviada (aluno ainda não tem ID — faz depois de criar)
+        aluno = criar_aluno(sb, professor_id, dados)
+        foto_url = _upload_foto_aluno(professor_id, aluno["id"], request.files.get("foto_file"))
+        if foto_url:
+            from .model import atualizar_aluno
+            atualizar_aluno(sb, professor_id, aluno["id"], {**dados, "foto_url": foto_url, "nome": aluno["nome"]})
         flash(f"Aluno '{aluno['nome']}' criado com sucesso!", "success")
         return redirect(url_for("alunos.ficha", aluno_id=aluno["id"]))
     except Exception as e:
         flash(f"Erro ao criar aluno: {e}", "danger")
         return render_template("alunos/form.html", aluno=None, dias_semana=DIAS_SEMANA,
-                               form_data=request.form, materias=MATERIAS, series=SERIES)
+                               form_data=request.form)
 
 
 # ---------------------------------------------------------------------------
@@ -105,8 +121,7 @@ def editar(aluno_id):
     todos_alunos = listar_alunos(sb, professor_id)
     alunos_cadastrados = [a for a in todos_alunos if str(a["id"]) != str(aluno_id)]
         
-    return render_template("alunos/form.html", aluno=aluno, dias_semana=DIAS_SEMANA, alunos_cadastrados=alunos_cadastrados,
-                           materias=MATERIAS, series=SERIES)
+    return render_template("alunos/form.html", aluno=aluno, dias_semana=DIAS_SEMANA, alunos_cadastrados=alunos_cadastrados)
 
 
 @alunos_bp.route("/<aluno_id>/editar", methods=["POST"])
@@ -118,19 +133,23 @@ def salvar_edicao(aluno_id):
         sb = _sb()
         aluno = buscar_aluno(sb, session["user_id"], aluno_id)
         return render_template("alunos/form.html", aluno=aluno, dias_semana=DIAS_SEMANA,
-                               form_data=request.form, materias=MATERIAS, series=SERIES)
+                               form_data=request.form)
 
     sb = _sb()
     professor_id = session["user_id"]
     try:
-        atualizar_aluno(sb, professor_id, aluno_id, request.form)
+        dados = dict(request.form)
+        foto_url = _upload_foto_aluno(professor_id, aluno_id, request.files.get("foto_file"))
+        if foto_url:
+            dados["foto_url"] = foto_url
+        atualizar_aluno(sb, professor_id, aluno_id, dados)
         flash("Dados atualizados com sucesso!", "success")
         return redirect(url_for("alunos.ficha", aluno_id=aluno_id))
     except Exception as e:
         flash(f"Erro ao salvar: {e}", "danger")
         aluno = buscar_aluno(sb, professor_id, aluno_id)
         return render_template("alunos/form.html", aluno=aluno, dias_semana=DIAS_SEMANA,
-                               form_data=request.form, materias=MATERIAS, series=SERIES)
+                               form_data=request.form)
 
 
 # ---------------------------------------------------------------------------

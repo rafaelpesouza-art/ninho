@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}Documentos – {{ aluno.nome }}{% endblock %}
+{% set active_module = 'alunos' %}
+
+{% block page_header %}
+<div class="flex items-center gap-3 mb-2">
+    <a href="{{ url_for('alunos.ficha', aluno_id=aluno.id, tab='clinico') }}"
+       class="p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50">
+       <i data-lucide="arrow-left" class="w-6 h-6"></i>
+    </a>
+    <div>
+        <p class="text-xs text-gray-500 font-semibold">{{ aluno.nome }}</p>
+        <h1 class="text-2xl font-bold text-gray-800 tracking-tight">Documentos</h1>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto pb-24 md:pb-6 space-y-6" x-data="documentosApp()">
+
+<!-- Upload Drag and Drop -->
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="bg-primaryLight/30 px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+        <i data-lucide="upload-cloud" class="w-5 h-5 text-primary"></i>
+        <h3 class="font-bold text-gray-800">Novo Arquivo</h3>
+    </div>
+    
+    <form method="POST" enctype="multipart/form-data" action="{{ url_for('clinico.upload_documento', aluno_id=aluno.id) }}"
+          class="p-6 space-y-4 relative" @submit="enviando = true">
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="sm:col-span-2">
+                <label class="block text-sm font-bold text-gray-700 mb-1.5">Título do Documento *</label>
+                <input type="text" name="titulo" required placeholder="Ex: Laudo Avaliação Multidisciplinar"
+                       class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-base bg-gray-50 focus:bg-white placeholder-gray-400 touch-manipulation">
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1.5">Tipo</label>
+                <select name="tipo"
+                        class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 text-base bg-gray-50 focus:bg-white touch-manipulation">
+                    <option value="laudo">Laudo</option>
+                    <option value="relatorio_externo">Relatório Externo</option>
+                    <option value="encaminhamento">Encaminhamento</option>
+                    <option value="outro">Outro (Exames, Pareceres...)</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-1.5">Observações Adicionais</label>
+                <input type="text" name="observacoes" placeholder="..."
+                       class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 text-base bg-gray-50 focus:bg-white placeholder-gray-400 touch-manipulation">
+            </div>
+        </div>
+
+        <!-- Drag & Drop Zone -->
+        <div class="mt-4 border-2 border-dashed rounded-2xl transition-colors relative"
+             :class="isDragging ? 'border-primary bg-primaryLight' : 'border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300'"
+             @dragover.prevent="isDragging = true"
+             @dragleave.prevent="isDragging = false"
+             @drop.prevent="handleDrop($event)">
+            
+            <input type="file" name="arquivo" id="file-upload" class="hidden" required accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" @change="handleFileSelect($event)">
+            
+            <div class="px-6 py-10 flex flex-col items-center justify-center text-center">
+                <div class="w-16 h-16 rounded-full flex items-center justify-center mb-3"
+                     :class="fileChoosen ? 'bg-green-100 text-green-600' : 'bg-primaryLight text-primary'">
+                    <i data-lucide="file-check" class="w-8 h-8" x-show="fileChoosen"></i>
+                    <i data-lucide="cloud-upload" class="w-8 h-8" x-show="!fileChoosen"></i>
+                </div>
+                
+                <p class="font-bold text-gray-700 tracking-tight" x-text="fileChoosen ? fileName : 'Selecione um arquivo'"></p>
+                <p class="text-xs text-gray-400 mt-1 mb-4" x-show="!fileChoosen">PDF, Imagens ou Word de até 10MB.<br>Você também pode arrastar e soltar aqui.</p>
+                <p class="text-xs text-gray-400 mt-1 mb-4 font-bold" x-show="fileChoosen" x-text="(fileSize / 1024 / 1024).toFixed(2) + ' MB'"></p>
+
+                <button type="button" @click="$refs.fileInput.click()" class="px-5 py-2 rounded-xl text-sm font-bold bg-white border shadow-sm touch-manipulation"
+                        :class="fileChoosen ? 'border-gray-200 text-gray-600' : 'border-primary/30 text-primary'">
+                    <span x-text="fileChoosen ? 'Trocar arquivo' : 'Navegar...' "></span>
+                </button>
+                <input type="file" name="arquivo" x-ref="fileInput" class="hidden" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" @change="handleFileSelect($event)">
+            </div>
+        </div>
+
+        <button type="submit" :disabled="!fileChoosen || enviando"
+                class="w-full py-4 text-white font-bold rounded-2xl transition-opacity flex items-center justify-center gap-2 shadow-sm touch-manipulation disabled:opacity-50"
+                :class="fileChoosen ? 'bg-primary hover:opacity-90' : 'bg-gray-300'">
+            <i data-lucide="upload" class="w-5 h-5" x-show="!enviando"></i>
+            <i data-lucide="loader-2" class="w-5 h-5 animate-spin" x-show="enviando" x-cloak></i>
+            <span x-text="enviando ? 'Enviando documento...' : 'Anexar ao Prontuário'"></span>
+        </button>
+    </form>
+</div>
+
+<!-- Lista de Documentos -->
+{% set tipo_labels = {
+    'laudo': ('Laudo Oficial', 'bg-blue-50 text-blue-700 border-blue-200'),
+    'relatorio_externo': ('Relatório Externo', 'bg-amber-50 text-amber-700 border-amber-200'),
+    'encaminhamento': ('Encaminhamento', 'bg-purple-50 text-purple-700 border-purple-200'),
+    'outro': ('Anotações/Outro', 'bg-gray-100 text-gray-600 border-gray-200'),
+} %}
+
+{% if documentos %}
+<div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+        <i data-lucide="folder-open" class="w-5 h-5 text-gray-400"></i>
+        <h3 class="font-bold text-gray-800">Acervo do Paciente ({{ documentos | length }})</h3>
+    </div>
+    <div class="divide-y divide-gray-50">
+        {% for doc in documentos %}
+        {% set tipo_info = tipo_labels.get(doc.tipo, ('Outro', 'bg-gray-100 text-gray-600 border-gray-200')) %}
+        <div class="p-4 sm:p-5 flex flex-col sm:flex-row gap-4 items-start sm:items-center group">
+            
+            <div class="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border
+                {% if '.pdf' in doc.arquivo_nome|lower %}bg-red-50 text-red-500 border-red-100
+                {% elif '.doc' in doc.arquivo_nome|lower %}bg-blue-50 text-blue-500 border-blue-100
+                {% elif '.png' in doc.arquivo_nome|lower or '.jpg' in doc.arquivo_nome|lower %}bg-green-50 text-green-500 border-green-100
+                {% else %}bg-gray-50 text-gray-500 border-gray-100{% endif %}">
+                {% if '.pdf' in doc.arquivo_nome|lower %}<i data-lucide="file-text" class="w-6 h-6"></i>
+                {% elif '.doc' in doc.arquivo_nome|lower %}<i data-lucide="file-word" class="w-6 h-6"></i>
+                {% elif '.png' in doc.arquivo_nome|lower or '.jpg' in doc.arquivo_nome|lower %}<i data-lucide="image" class="w-6 h-6"></i>
+                {% else %}<i data-lucide="file" class="w-6 h-6"></i>{% endif %}
+            </div>
+            
+            <div class="flex-1 min-w-0 w-full">
+                <div class="flex flex-wrap items-center gap-2 mb-1">
+                    <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded border {{ tipo_info[1] }}">{{ tipo_info[0] }}</span>
+                    <span class="text-xs text-gray-400 font-semibold">{{ doc.criado_em[:10] if doc.criado_em else '' }}</span>
+                </div>
+                <p class="font-bold text-gray-800 text-base leading-tight">{{ doc.titulo }}</p>
+                {% if doc.observacoes %}
+                <p class="text-sm text-gray-500 mt-1 line-clamp-2"><i data-lucide="info" class="w-3.5 h-3.5 inline text-gray-300"></i> {{ doc.observacoes }}</p>
+                {% endif %}
+            </div>
+            
+            <div class="flex w-full sm:w-auto items-center justify-end gap-2 mt-2 sm:mt-0 shrink-0">
+                {% if doc._url_signed %}
+                <!-- Preview in New Tab (Natively supports PDFs/Images) -->
+                <a href="{{ doc._url_signed }}" target="_blank" rel="noopener"
+                   class="flex items-center gap-1.5 px-4 py-2 sm:px-3 sm:py-2 rounded-xl bg-gray-50 hover:bg-primaryLight text-gray-600 font-bold hover:text-primary transition-colors border border-gray-200 flex-1 justify-center sm:flex-none">
+                    <i data-lucide="eye" class="w-4 h-4"></i> Preview
+                </a>
+                {% endif %}
+                <form method="POST" action="{{ url_for('clinico.excluir_doc', aluno_id=aluno.id, doc_id=doc.id) }}"
+                      onsubmit="return confirm('ATENÇÃO: Este documento será permanentemente excluído do prontuário. Deseja prosseguir?')">
+                    <button type="submit"
+                            class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-50 hover:bg-red-50 text-gray-400 font-bold hover:text-red-600 transition-colors border border-gray-200">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </form>
+            </div>
+
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="bg-white rounded-2xl shadow-sm border border-dashed border-gray-200 p-12 text-center">
+    <i data-lucide="folder-search" class="w-16 h-16 text-gray-200 mx-auto mb-4"></i>
+    <p class="text-lg text-gray-800 font-bold">Acervo Vazio</p>
+    <p class="text-sm text-gray-500 mt-2 max-w-sm mx-auto">Nenhum laudo, atestado ou relatório foi arquivado no prontuário deste paciente ainda.</p>
+</div>
+{% endif %}
+
+</div>
+
+<script>
+function documentosApp() {
+    return {
+        isDragging: false,
+        fileChoosen: false,
+        fileName: '',
+        fileSize: 0,
+        enviando: false,
+        
+        handleDrop(e) {
+            this.isDragging = false;
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                this.$refs.fileInput.files = files; // vincula file
+                this.updateFileInfo(files[0]);
+            }
+        },
+        handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                this.updateFileInfo(files[0]);
+            } else {
+                this.fileChoosen = false;
+            }
+        },
+        updateFileInfo(file) {
+            this.fileChoosen = true;
+            this.fileName = file.name;
+            this.fileSize = file.size;
+        }
+    }
+}
+</script>
+{% endblock %}

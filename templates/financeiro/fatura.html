@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ fatura.mes_label }} — {{ fatura.nome_display or (fatura.alunos or {}).nome or 'Fatura' }} - Ninho{% endblock %}
+{% block title %}{{ fatura.mes_label }} — {{ fatura.nome_display or (fatura.pacientes or {}).nome or 'Fatura' }} - Ninho{% endblock %}
 
 {% block page_header %}
 <div class="flex items-center justify-between mb-4">
@@ -10,7 +10,7 @@
         </a>
         <div>
             <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 tracking-tight">
-                {{ fatura.nome_display or (fatura.alunos or {}).nome or 'Fatura' }}
+                {{ fatura.nome_display or (fatura.pacientes or {}).nome or 'Fatura' }}
             </h1>
             <p class="text-gray-500 text-sm mt-0.5">{{ fatura.mes_label }}</p>
         </div>
@@ -158,7 +158,7 @@
             {# Cancelar fatura #}
             {% if fatura.status != 'cancelada' %}
             <form method="POST" action="{{ url_for('financeiro.cancelar', fatura_id=fatura.id) }}"
-                  onsubmit="return confirm('Cancelar esta fatura? Isso não afeta as aulas.')">
+                  onsubmit="return confirm('Cancelar esta fatura? Isso não afeta as sessões.')">
                 <button type="submit"
                         class="w-full px-4 py-3 bg-white text-red-500 hover:bg-red-50 border border-red-100 font-bold rounded-xl transition-colors text-sm flex items-center justify-center gap-2">
                     <i data-lucide="x-circle" class="w-4 h-4"></i> Cancelar Fatura
@@ -175,15 +175,21 @@
             </h3>
 
             {# Card visual (capturado como imagem) #}
-            <div id="print-area" class="bg-[#e4dcf1] rounded-[24px] p-6 sm:p-8 shadow-sm relative overflow-hidden">
+            <div id="print-area" class="bg-primary/10 rounded-[24px] p-6 sm:p-8 shadow-sm relative overflow-hidden">
                 <div class="absolute -right-10 -top-10 w-40 h-40 bg-white/20 rounded-full blur-2xl pointer-events-none"></div>
                 <div class="absolute -left-10 -bottom-10 w-40 h-40 bg-primary/10 rounded-full blur-2xl pointer-events-none"></div>
 
                 <div class="relative z-10 bg-white/60 backdrop-blur-md rounded-[20px] p-5 border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] text-center text-gray-800">
 
                     <div class="mb-4">
-                        <div class="w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center mx-auto mb-2 shadow-md">
-                            <i data-lucide="sparkles" class="w-6 h-6"></i>
+                        <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-2 shadow-md overflow-hidden border-4 border-white">
+                            {% if session.get('user_logo_url') %}
+                            <img src="{{ session.get('user_logo_url') }}" class="w-full h-full object-contain" alt="Logo">
+                            {% else %}
+                            <div class="w-full h-full bg-primary text-white flex items-center justify-center">
+                                <i data-lucide="graduation-cap" class="w-8 h-8"></i>
+                            </div>
+                            {% endif %}
                         </div>
                         <h4 class="font-black text-xl text-primary">{{ config.nome_recebedor or 'Professora' }}</h4>
                         {% if fatura.nome_display %}
@@ -200,16 +206,23 @@
                             <div class="w-8 h-8 rounded-full bg-primaryLight text-primary flex items-center justify-center shrink-0">
                                 <i data-lucide="book-open" class="w-4 h-4"></i>
                             </div>
-                            <span class="font-bold text-gray-700">Aulas Realizadas</span>
+                            <span class="font-bold text-gray-700">Sessões Realizadas</span>
                         </div>
                         {% for a in aulas %}
                         {% set aluno_a = a.alunos or {} %}
+                        {% set fase_a = aluno_a.get('fase_atual') if aluno_a else none %}
                         <div class="flex items-center gap-3 text-sm font-semibold text-gray-600">
                             <div class="w-2 h-2 rounded-full bg-primary shrink-0"></div>
                             <span>
                                 {{ a.data_hora[8:10] }}/{{ a.data_hora[5:7] }}
                                 {% if fatura.familia_id and aluno_a.nome %}
                                 <span class="text-gray-400 font-normal"> · {{ aluno_a.nome }}</span>
+                                {% endif %}
+                                {% if tem_tipos_distintos and fase_a in ('avaliacao', 'intervencao') %}
+                                <span class="ml-1 text-[10px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md
+                                    {% if fase_a == 'avaliacao' %}bg-blue-100 text-blue-600{% else %}bg-green-100 text-green-600{% endif %}">
+                                    {{ 'Aval.' if fase_a == 'avaliacao' else 'Inter.' }}
+                                </span>
                                 {% endif %}
                             </span>
                         </div>

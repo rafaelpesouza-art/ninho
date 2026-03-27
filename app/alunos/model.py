@@ -52,8 +52,8 @@ def criar_aluno(sb, professor_id, dados: dict):
         "email": dados.get("email") or None,
         "observacoes": dados.get("observacoes") or None,
         "ativo": True,
-        "materia_foco": dados.get("materia_foco") or None,
-        "serie": dados.get("serie") or None,
+        "foto_url": dados.get("foto_url") or None,
+        "fase_atual": dados.get("fase_atual") or "anamnese",
     }
 
     # Lógica de Vínculo Familiar
@@ -103,8 +103,8 @@ def atualizar_aluno(sb, professor_id, aluno_id, dados: dict):
         "horario_fixo": dados.get("horario_fixo") or None,
         "duracao_padrao_min": _parse_int(dados.get("duracao_padrao_min")) or 60,
         "valor_aula": _parse_float(dados.get("valor_aula")),
-        "materia_foco": dados.get("materia_foco") or None,
-        "serie": dados.get("serie") or None,
+        "foto_url": dados.get("foto_url") or None,
+        "fase_atual": dados.get("fase_atual") or "anamnese",
     }
     # Lógica de Vínculo Familiar
     familia_id = None
@@ -252,14 +252,15 @@ def ficha_aluno(sb, professor_id, aluno_id):
         .execute()
     ).data or []
 
+    # Histórico: aulas realizadas/canceladas/remarcadas OU agendadas no passado
     historico = (
         sb.table("aulas")
-        .select("id, data_hora, status, duracao_min, registros_aula(id, descricao, evolucao, humor, participacao, observacoes, fotos_sessao(id, storage_path, legenda))")
+        .select("id, data_hora, status, duracao_min, registros_sessao(id, descricao, enviado_familia, fotos_sessao(id, storage_path, legenda))")
         .eq("professor_id", professor_id)
         .eq("aluno_id", aluno_id)
-        .neq("status", "agendada")
+        .or_(f"status.neq.agendada,data_hora.lt.{hoje}T00:00:00")
         .order("data_hora", desc=True)
-        .limit(10)
+        .limit(20)
         .execute()
     ).data or []
 
@@ -277,12 +278,21 @@ def ficha_aluno(sb, professor_id, aluno_id):
     except Exception:
         foto_count = 0
 
+    # Resumo clínico (caixinhas da ficha)
+    clinico = {}
+    try:
+        from ..clinico.model import resumo_clinico
+        clinico = resumo_clinico(sb, professor_id, aluno_id)
+    except Exception:
+        pass
+
     return {
         "aluno": aluno,
         "proximas_aulas": proximas,
         "historico_aulas": historico,
         "irmaos": irmaos,
         "foto_count": foto_count,
+        "clinico": clinico,
     }
 
 

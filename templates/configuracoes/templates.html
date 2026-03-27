@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block title %}Templates – Configurações{% endblock %}
+{% set active_module = 'configuracoes' %}
+
+{% block page_header %}
+<div class="flex items-center gap-3 mb-2">
+    <h1 class="text-2xl font-bold text-gray-800 tracking-tight">Templates Padronizados</h1>
+</div>
+<p class="text-sm text-gray-500 max-w-3xl">Otimize seu tempo estruturando tópicos de anamnese e áreas de avaliação que se repetem. Estes modelos serão carregados automaticamente sempre que você iniciar uma nova documentação para qualquer paciente.</p>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto pb-24 md:pb-6 space-y-8" x-data="configTemplatesApp()">
+
+    <!-- Helper: Create specific default templates by filtering existing anamnese_tpls using padrao == True. If not found, use first. -->
+    {% set default_anam = (anamnese_tpls | selectattr("padrao") | list | first) if (anamnese_tpls | selectattr("padrao") | list) else (anamnese_tpls[0] if anamnese_tpls else None) %}
+    {% set default_aval = (avaliacao_tpls | selectattr("padrao") | list | first) if (avaliacao_tpls | selectattr("padrao") | list) else (avaliacao_tpls[0] if avaliacao_tpls else None) %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- Template Padrão de Anamnese -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+            <div class="px-6 py-5 border-b border-gray-100 flex items-center gap-3 bg-blue-50/30">
+                <div class="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
+                    <i data-lucide="clipboard-list" class="w-5 h-5 text-blue-600"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-gray-800">Minhas Seções de Anamnese</h3>
+                    <p class="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Template Global</p>
+                </div>
+            </div>
+            
+            <form method="POST" action="{{ url_for('configuracoes.criar_template') if not default_anam else url_for('configuracoes.editar_template', template_id=default_anam.id) }}" 
+                  class="flex-1 p-6 flex flex-col space-y-4">
+                <input type="hidden" name="tipo" value="anamnese">
+                <input type="hidden" name="padrao" value="on">
+                <input type="hidden" name="nome" value="Template Base Anamnese">
+                <input type="hidden" name="secoes_json" :value="JSON.stringify(anamneseSecoes)">
+
+                <div class="flex-1 space-y-3">
+                    <template x-for="(sec, idx) in anamneseSecoes" :key="idx">
+                        <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-100">
+                            <!-- Drag handle (visual) -->
+                            <div class="px-1 text-gray-300 cursor-move">
+                                <i data-lucide="grip-vertical" class="w-4 h-4"></i>
+                            </div>
+                            <input type="text" x-model="sec.titulo" placeholder="Título da Seção..." required
+                                   class="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 font-semibold text-gray-700">
+                            
+                            <!-- Reorder buttons -->
+                            <button type="button" @click="moverItem(anamneseSecoes, idx, -1)" :disabled="idx === 0"
+                                    class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-primary hover:bg-primaryLight rounded disabled:opacity-30 touch-manipulation">
+                                <i data-lucide="arrow-up" class="w-3.5 h-3.5"></i>
+                            </button>
+                            <button type="button" @click="moverItem(anamneseSecoes, idx, 1)" :disabled="idx === anamneseSecoes.length - 1"
+                                    class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-primary hover:bg-primaryLight rounded disabled:opacity-30 touch-manipulation">
+                                <i data-lucide="arrow-down" class="w-3.5 h-3.5"></i>
+                            </button>
+                            
+                            <!-- Delete -->
+                            <button type="button" @click="removerItem(anamneseSecoes, idx)"
+                                    class="w-7 h-7 flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 rounded touch-manipulation">
+                                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </template>
+
+                    <p x-show="anamneseSecoes.length === 0" class="text-sm text-gray-400 text-center py-4 border-2 border-dashed rounded-xl">
+                        Nenhuma seção pré-definida.
+                    </p>
+                </div>
+
+                <div class="mt-4 flex flex-col gap-3">
+                    <button type="button" @click="anamneseSecoes.push({titulo:'', texto:''})"
+                            class="w-full py-2.5 border-2 border-dashed border-gray-200 text-gray-500 font-bold rounded-xl hover:bg-gray-50 hover:text-gray-700 transition-colors flex items-center justify-center gap-1.5 touch-manipulation">
+                        <i data-lucide="plus" class="w-4 h-4"></i> Adicionar nova seção
+                    </button>
+                    
+                    <button type="submit" class="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-sm flex items-center justify-center gap-2 touch-manipulation" @click="lucide.createIcons()">
+                        <i data-lucide="save" class="w-4 h-4"></i> Salvar Matriz de Anamnese
+                    </button>
+                </div>
+            </form>
+        </div>
+
+
+        <!-- Template Padrão de Avaliação -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+            <div class="px-6 py-5 border-b border-gray-100 flex items-center gap-3 bg-purple-50/30">
+                <div class="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center shrink-0">
+                    <i data-lucide="grid-3x3" class="w-5 h-5 text-purple-600"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-gray-800">Minhas Áreas de Avaliação</h3>
+                    <p class="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Template Global</p>
+                </div>
+            </div>
+            
+            <form method="POST" action="{{ url_for('configuracoes.criar_template') if not default_aval else url_for('configuracoes.editar_template', template_id=default_aval.id) }}" 
+                  class="flex-1 p-6 flex flex-col space-y-4">
+                <input type="hidden" name="tipo" value="avaliacao">
+                <input type="hidden" name="padrao" value="on">
+                <input type="hidden" name="nome" value="Template Base Avaliação">
+                <!-- using 'titulo' for consistency in standard templates json -->
+                <input type="hidden" name="secoes_json" :value="JSON.stringify(avaliacaoAreas)">
+
+                <div class="flex-1 space-y-3">
+                    <template x-for="(area, idx) in avaliacaoAreas" :key="idx">
+                        <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-xl border border-gray-100">
+                            <!-- Drag handle (visual) -->
+                            <div class="px-1 text-gray-300 cursor-move">
+                                <i data-lucide="grip-vertical" class="w-4 h-4"></i>
+                            </div>
+                            <!-- Support 'area' or 'titulo' property dynamically due to old schemas -->
+                            <input type="text" x-model="area.titulo" placeholder="Nome do Domínio/Área..." required
+                                   class="flex-1 bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 font-semibold text-gray-700">
+                            
+                            <!-- Reorder buttons -->
+                            <button type="button" @click="moverItem(avaliacaoAreas, idx, -1)" :disabled="idx === 0"
+                                    class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-primary hover:bg-primaryLight rounded disabled:opacity-30 touch-manipulation">
+                                <i data-lucide="arrow-up" class="w-3.5 h-3.5"></i>
+                            </button>
+                            <button type="button" @click="moverItem(avaliacaoAreas, idx, 1)" :disabled="idx === avaliacaoAreas.length - 1"
+                                    class="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-primary hover:bg-primaryLight rounded disabled:opacity-30 touch-manipulation">
+                                <i data-lucide="arrow-down" class="w-3.5 h-3.5"></i>
+                            </button>
+                            
+                            <!-- Delete -->
+                            <button type="button" @click="removerItem(avaliacaoAreas, idx)"
+                                    class="w-7 h-7 flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 rounded touch-manipulation">
+                                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </template>
+
+                    <p x-show="avaliacaoAreas.length === 0" class="text-sm text-gray-400 text-center py-4 border-2 border-dashed rounded-xl">
+                        Nenhuma área pré-definida.
+                    </p>
+                </div>
+
+                <div class="mt-4 flex flex-col gap-3">
+                    <button type="button" @click="avaliacaoAreas.push({titulo:'', observacao:''})"
+                            class="w-full py-2.5 border-2 border-dashed border-gray-200 text-gray-500 font-bold rounded-xl hover:bg-gray-50 hover:text-gray-700 transition-colors flex items-center justify-center gap-1.5 touch-manipulation">
+                        <i data-lucide="plus" class="w-4 h-4"></i> Adicionar nova área
+                    </button>
+                    
+                    <button type="submit" class="w-full py-3 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-700 shadow-sm flex items-center justify-center gap-2 touch-manipulation" @click="lucide.createIcons()">
+                        <i data-lucide="save" class="w-4 h-4"></i> Salvar Matriz de Avaliação
+                    </button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+const _baseAnam = {{ (default_anam.secoes if default_anam and default_anam.secoes else []) | tojson }};
+
+// Avaliação backend usually stores 'area' as key for items, but 'templates' structure often uses 'titulo'
+// Let's normalize to 'titulo' which is what our x-model uses
+const _baseAvalRaw = {{ (default_aval.secoes if default_aval and default_aval.secoes else []) | tojson }};
+const _baseAval = _baseAvalRaw.map(obj => {
+    return {
+        titulo: obj.titulo || obj.area || '',
+        observacao: obj.observacao || ''
+    };
+});
+
+function configTemplatesApp() {
+    return {
+        anamneseSecoes: JSON.parse(JSON.stringify(_baseAnam)),
+        avaliacaoAreas: JSON.parse(JSON.stringify(_baseAval)),
+
+        removerItem(arr, idx) {
+            arr.splice(idx, 1);
+        },
+        moverItem(arr, idx, dir) {
+            if (idx + dir >= 0 && idx + dir < arr.length) {
+                const item = arr.splice(idx, 1)[0];
+                arr.splice(idx + dir, 0, item);
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

@@ -42,7 +42,7 @@ def listar_aulas_mes(sb, professor_id: str, ano: int, mes: int) -> list:
 def listar_aulas_dia(sb, professor_id: str, data: date) -> list:
     res = (
         sb.table("aulas")
-        .select("id, data_hora, duracao_min, status, motivo_cancelamento, observacoes, alunos(id, nome, telefone)")
+        .select("id, data_hora, duracao_min, status, motivo_cancelamento, observacoes, lembrete_enviado, alunos(id, nome, telefone)")
         .eq("professor_id", professor_id)
         .gte("data_hora", data.isoformat() + "T00:00:00")
         .lte("data_hora", data.isoformat() + "T23:59:59")

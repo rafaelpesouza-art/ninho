@@ -7,7 +7,8 @@ from .agenda import agenda_bp
 from .registros import registros_bp
 from .financeiro import financeiro_bp
 from .comunicacao import comunicacao_bp
-from .planejamento import planejamento_bp
+from .clinico import clinico_bp
+from .configuracoes import configuracoes_bp
 from postgrest.exceptions import APIError
 from flask import redirect, url_for, flash, session
 
@@ -27,7 +28,9 @@ def create_app(config_object="config.Config"):
     app.register_blueprint(registros_bp, url_prefix="/registros")
     app.register_blueprint(financeiro_bp, url_prefix="/financeiro")
     app.register_blueprint(comunicacao_bp, url_prefix="/comunicacao")
-    app.register_blueprint(planejamento_bp, url_prefix="/planejamento")
+    app.register_blueprint(clinico_bp, url_prefix="/alunos")
+    app.register_blueprint(configuracoes_bp, url_prefix="/configuracoes")
+
     @app.errorhandler(APIError)
     def handle_api_error(error):
         # PGRST303 é o código de erro do Supabase/PostgREST para JWT expirado ou inválido

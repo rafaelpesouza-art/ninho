@@ -1,545 +1,323 @@
 {% extends "base.html" %}
 {% block title %}{{ aluno.nome }} - Ninho{% endblock %}
-{% set nomes_dias = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'] %}
 
 {% block page_header %}
-<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
-    <div class="flex items-center gap-3">
-        <a href="{{ url_for('alunos.lista') }}" class="p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50">
+<div class="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-2">
+    <div class="flex items-start gap-4">
+        <a href="{{ url_for('alunos.lista') }}" class="mt-2 p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 shrink-0">
            <i data-lucide="arrow-left" class="w-6 h-6"></i>
         </a>
-        <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 tracking-tight break-all">
-            {{ aluno.nome }}
-        </h1>
-        {% if not aluno.ativo %}
-        <span class="px-2.5 py-1 text-xs font-bold rounded-full bg-gray-100 text-gray-500 uppercase tracking-wide">Inativo</span>
-        {% else %}
-        <span class="px-2.5 py-1 text-xs font-bold rounded-full bg-green-50 text-green-700 uppercase tracking-wide flex items-center gap-1">
-            <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div>Ativo
-        </span>
-        {% endif %}
+        
+        <!-- Top Section Info -->
+        <div class="flex items-center gap-4">
+            <!-- Photo -->
+            {% if aluno.foto_url %}
+            <img src="{{ aluno.foto_url }}" alt="{{ aluno.nome }}"
+                 class="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover shadow-sm border-2 border-white ring-2 ring-primaryLight shrink-0">
+            {% else %}
+            <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-primaryLight to-primary/20 flex items-center justify-center shadow-sm shrink-0 text-primary border-2 border-white ring-2 ring-primaryLight">
+                <span class="text-2xl sm:text-3xl font-bold">{{ aluno.nome[:1] | upper }}</span>
+            </div>
+            {% endif %}
+            
+            <!-- Details -->
+            <div class="flex flex-col">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 tracking-tight break-all">
+                        {{ aluno.nome }}
+                    </h1>
+                    {% if not aluno.ativo %}
+                    <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-500 uppercase tracking-wide">Inativo</span>
+                    {% endif %}
+                    
+                    <!-- Phase Badge -->
+                    {% set fase_labels = {
+                        'anamnese': ('Anamnese','bg-yellow-100 text-yellow-800 border-yellow-200'), 
+                        'avaliacao': ('Avaliação','bg-blue-100 text-blue-800 border-blue-200'), 
+                        'intervencao': ('Intervenção','bg-green-100 text-green-800 border-green-200'), 
+                        'alta': ('Alta','bg-gray-100 text-gray-800 border-gray-200')
+                    } %}
+                    {% set fase_info = fase_labels.get(aluno.get('fase_atual','anamnese'), ('Anamnese','bg-yellow-100 text-yellow-800 border-yellow-200')) %}
+                    <span class="px-2.5 py-1 text-xs font-bold rounded-full {{ fase_info[1] }} uppercase tracking-wide border opacity-90">{{ fase_info[0] }}</span>
+                </div>
+                
+                <div class="mt-1 flex items-center gap-3 text-sm text-gray-500 font-semibold flex-wrap">
+                    {% if aluno.escola %}
+                    <span class="flex items-center gap-1">
+                        <i data-lucide="school" class="w-4 h-4"></i>
+                        {{ aluno.escola }}
+                    </span>
+                    {% endif %}
+                    {% if aluno.serie %}
+                    <span class="flex items-center gap-1">
+                        <i data-lucide="book-open" class="w-4 h-4"></i>
+                        {{ aluno.serie }}
+                    </span>
+                    {% endif %}
+                    {% if aluno.data_nascimento %}
+                    <span class="flex items-center gap-1 hidden sm:flex">
+                        <i data-lucide="cake" class="w-4 h-4"></i>
+                        {{ aluno.data_nascimento }}
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="flex gap-2 w-full md:w-auto">
+    
+    <div class="flex gap-2 w-full md:w-auto mt-4 md:mt-0">
+        <a href="{{ url_for('comunicacao.relatorio') }}?aluno_id={{ aluno.id }}"
+           class="flex-1 md:flex-none px-4 py-2 text-sm font-bold text-center rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 transition-all shadow-sm flex items-center justify-center gap-2">
+           <i data-lucide="file-bar-chart" class="w-4 h-4"></i>
+           Relatório
+        </a>
         <a href="{{ url_for('alunos.editar', aluno_id=aluno.id) }}"
-           class="flex-1 md:flex-none px-5 py-2.5 text-sm font-bold text-center rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50 flex items-center justify-center gap-2">
+           class="flex-1 md:flex-none px-4 py-2 text-sm font-bold text-center rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50 flex items-center justify-center gap-2">
            <i data-lucide="edit-2" class="w-4 h-4"></i>
            Editar
         </a>
-        {% if aluno.ativo %}
-        <form method="POST" action="{{ url_for('alunos.desativar', aluno_id=aluno.id) }}"
-              onsubmit="return confirm('Tem certeza que deseja desativar o aluno {{ aluno.nome }}?')" class="flex-1 md:flex-none">
-            <button type="submit"
-                    class="w-full px-5 py-2.5 text-sm font-bold text-center rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition-all focus:outline-none focus:ring-2 focus:ring-red-500/50 flex items-center justify-center gap-2">
-                <i data-lucide="power-off" class="w-4 h-4"></i>
-                Desativar
-            </button>
-        </form>
-        {% endif %}
     </div>
 </div>
 {% endblock %}
 
 {% block content %}
-<div x-data="{ currentTab: 'resumo' }" class="pb-24 md:pb-6">
-
-    <!-- Mobile-friendly Tabs Navigation -->
-    <div class="flex overflow-x-auto no-scrollbar bg-white rounded-2xl shadow-sm border border-gray-100 mb-6 p-1.5 gap-1">
-        <button @click="currentTab = 'resumo'" 
-                :class="currentTab === 'resumo' ? 'bg-primaryLight text-primary font-bold shadow-sm' : 'text-gray-500 font-semibold hover:bg-gray-50 hover:text-gray-700'"
-                class="flex-1 min-w-[120px] px-4 py-3 text-sm rounded-xl transition-all flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary/30">
-            <i data-lucide="user" class="w-4 h-4"></i>
-            Resumo
-        </button>
+<div class="pb-24 md:pb-6 space-y-8">
+    
+    <!-- Cards Grid (5 Cards) -->
+    {% set c = clinico %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         
-        <button @click="currentTab = 'aulas'" 
-                :class="currentTab === 'aulas' ? 'bg-primaryLight text-primary font-bold shadow-sm' : 'text-gray-500 font-semibold hover:bg-gray-50 hover:text-gray-700'"
-                class="flex-1 min-w-[120px] px-4 py-3 text-sm rounded-xl transition-all flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary/30 relative">
-            <i data-lucide="calendar" class="w-4 h-4"></i>
-            Aulas
-            {% if proximas_aulas %}
-            <span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary shrink-0"></span>
-            {% endif %}
-        </button>
-        
-        <button @click="currentTab = 'historico'"
-                :class="currentTab === 'historico' ? 'bg-primaryLight text-primary font-bold shadow-sm' : 'text-gray-500 font-semibold hover:bg-gray-50 hover:text-gray-700'"
-                class="flex-1 min-w-[120px] px-4 py-3 text-sm rounded-xl transition-all flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary/30">
-            <i data-lucide="history" class="w-4 h-4"></i>
-            Histórico
-        </button>
-
-        <button @click="currentTab = 'fotos'"
-                :class="currentTab === 'fotos' ? 'bg-primaryLight text-primary font-bold shadow-sm' : 'text-gray-500 font-semibold hover:bg-gray-50 hover:text-gray-700'"
-                class="flex-1 min-w-[100px] px-4 py-3 text-sm rounded-xl transition-all flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary/30 relative">
-            <i data-lucide="image" class="w-4 h-4"></i>
-            Fotos
-            {% if foto_count %}
-            <span class="absolute top-2 right-2 px-1.5 py-0.5 text-[9px] font-bold bg-blue-500 text-white rounded-full">{{ foto_count }}</span>
-            {% endif %}
-        </button>
-    </div>
-
-    <!-- Tab Content: Resumo -->
-    <div x-cloak x-show="currentTab === 'resumo'" 
-         x-transition:enter="transition ease-out duration-300 transform"
-         x-transition:enter-start="opacity-0 translate-y-2"
-         x-transition:enter-end="opacity-100 translate-y-0"
-         class="space-y-6">
-         
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            <!-- Coluna Esquerda: Dados Principais -->
-            <div class="lg:col-span-2 space-y-6">
-                
-                <!-- Informações de Contato -->
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div class="p-6 sm:p-8 flex flex-col sm:flex-row items-center sm:items-start gap-6">
-                        <!-- Avatar -->
-                        <div class="w-24 h-24 rounded-full bg-gradient-to-br from-primaryLight to-primary/20 flex items-center justify-center shadow-inner shrink-0 text-primary">
-                            <span class="text-3xl font-bold">{{ aluno.nome[:1] | upper }}</span>
-                        </div>
-                        
-                        <!-- Contato -->
-                        <div class="flex-1 text-center sm:text-left w-full space-y-4">
-                            <h3 class="font-bold text-gray-800 text-lg border-b border-gray-100 pb-2">Informações de Contato</h3>
-                            
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                                {% if aluno.telefone %}
-                                <div class="flex items-center gap-3 bg-gray-50 p-3 rounded-xl border border-gray-100">
-                                    <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center text-primary shadow-sm shrink-0">
-                                        <i data-lucide="phone" class="w-5 h-5"></i>
-                                    </div>
-                                    <div class="min-w-0">
-                                        <p class="text-xs text-gray-400 font-semibold">Telefone</p>
-                                        <p class="text-gray-800 font-bold truncate">{{ aluno.telefone }}</p>
-                                    </div>
-                                </div>
-                                {% endif %}
-                                
-                                {% if aluno.email %}
-                                <div class="flex items-center gap-3 bg-gray-50 p-3 rounded-xl border border-gray-100">
-                                    <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center text-primary shadow-sm shrink-0">
-                                        <i data-lucide="mail" class="w-5 h-5"></i>
-                                    </div>
-                                    <div class="min-w-0">
-                                        <p class="text-xs text-gray-400 font-semibold">Email</p>
-                                        <p class="text-gray-800 font-bold truncate">{{ aluno.email }}</p>
-                                    </div>
-                                </div>
-                                {% endif %}
-                                
-                                {% if aluno.data_nascimento %}
-                                <div class="flex items-center gap-3 bg-gray-50 p-3 rounded-xl border border-gray-100">
-                                    <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center text-primary shadow-sm shrink-0">
-                                        <i data-lucide="cake" class="w-5 h-5"></i>
-                                    </div>
-                                    <div class="min-w-0">
-                                        <p class="text-xs text-gray-400 font-semibold">Nascimento</p>
-                                        <!-- Formatação simples, pode melhorar com custom filter se preferir -->
-                                        <p class="text-gray-800 font-bold truncate">{{ aluno.data_nascimento }}</p>
-                                    </div>
-                                </div>
-                                {% endif %}
-
-                                {% if aluno.responsavel %}
-                                <div class="flex items-center gap-3 bg-gray-50 p-3 rounded-xl border border-gray-100">
-                                    <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center text-primary shadow-sm shrink-0">
-                                        <i data-lucide="users" class="w-5 h-5"></i>
-                                    </div>
-                                    <div class="min-w-0">
-                                        <p class="text-xs text-gray-400 font-semibold">Responsável</p>
-                                        <p class="text-gray-800 font-bold truncate">{{ aluno.responsavel }}</p>
-                                    </div>
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
+        <!-- 1. Anamnese -->
+        <a href="{{ url_for('clinico.anamnese', aluno_id=aluno.id) }}"
+           class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:border-primary/30 hover:shadow-md transition-all group flex flex-col gap-3 h-full touch-manipulation">
+            <div class="flex items-start justify-between">
+                <div class="w-12 h-12 rounded-2xl bg-primaryLight/50 flex items-center justify-center">
+                    <i data-lucide="users" class="w-6 h-6 text-primary"></i>
                 </div>
-
-                <!-- Observações Pedagógicas -->
-                {% if aluno.observacoes %}
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div class="bg-yellow-50/50 px-6 py-4 border-b border-yellow-100 flex items-center gap-2 text-yellow-800">
-                        <i data-lucide="book-open" class="w-5 h-5"></i>
-                        <h3 class="font-bold">Observações Pedagógicas</h3>
-                    </div>
-                    <div class="p-6">
-                        <p class="text-gray-700 whitespace-pre-wrap leading-relaxed">{{ aluno.observacoes }}</p>
-                    </div>
-                </div>
+                {% if c and c.anamnese %}
+                <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-green-50 text-green-700 border border-green-100">Preenchida</span>
+                {% else %}
+                <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-yellow-50 text-yellow-700 border border-yellow-100">Pendente</span>
                 {% endif %}
             </div>
-            
-            <!-- Coluna Direita: Dados Financeiros / Aulas -->
-            <div class="space-y-6">
-                <!-- Agendamento -->
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
-                        <i data-lucide="clock" class="w-5 h-5 text-gray-400"></i>
-                        <h3 class="font-bold text-gray-800">Modelo de Aulas</h3>
-                    </div>
-                    <div class="p-6 space-y-4">
-                        <div class="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-100">
-                            <div class="flex flex-col">
-                                <span class="text-xs text-gray-500 font-semibold uppercase tracking-wide">Frequência</span>
-                                {% if aluno.dia_semana_fixo is not none and aluno.horario_fixo %}
-                                <span class="font-bold text-gray-800">{{ nomes_dias[aluno.dia_semana_fixo] }}s às {{ aluno.horario_fixo[:5] }}</span>
-                                {% else %}
-                                <span class="font-bold text-gray-800">Aulas Flexíveis</span>
-                                {% endif %}
-                            </div>
-                            <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 shadow-sm">
-                                <i data-lucide="calendar" class="w-5 h-5"></i>
-                            </div>
-                        </div>
-
-                        <div class="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-100">
-                            <div class="flex flex-col">
-                                <span class="text-xs text-gray-500 font-semibold uppercase tracking-wide">Duração Padrão</span>
-                                <span class="font-bold text-gray-800">{{ aluno.duracao_padrao_min or 60 }} min</span>
-                            </div>
-                            <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-400 shadow-sm">
-                                <i data-lucide="timer" class="w-5 h-5"></i>
-                            </div>
-                        </div>
-
-                        <div class="flex items-center justify-between p-3 rounded-xl bg-primaryLight/50 border border-primary/10">
-                            <div class="flex flex-col">
-                                <span class="text-xs text-primary font-bold uppercase tracking-wide">Valor por Aula</span>
-                                <span class="text-xl font-black text-primary">
-                                    {% if aluno.valor_aula %}R$ {{ "%.2f"|format(aluno.valor_aula) }}{% else %}—{% endif %}
-                                </span>
-                            </div>
-                            <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center text-primary shadow-sm">
-                                <i data-lucide="dollar-sign" class="w-5 h-5"></i>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Família / Irmãos -->
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
-                        <i data-lucide="users" class="w-5 h-5 text-gray-400"></i>
-                        <h3 class="font-bold text-gray-800">Grupo Familiar</h3>
-                    </div>
-                    <div class="p-6">
-                        {% if irmaos %}
-                        <ul class="space-y-3">
-                            {% for i in irmaos %}
-                            <li>
-                                <a href="{{ url_for('alunos.ficha', aluno_id=i.id) }}"
-                                   class="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-primary/50 hover:bg-primaryLight/30 transition-all group {% if not i.ativo %}opacity-60 saturate-50{% endif %}">
-                                    <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold shadow-sm">
-                                        {{ i.nome[:1] | upper }}
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="font-bold text-gray-800 truncate group-hover:text-primary transition-colors">{{ i.nome }}</p>
-                                        {% if not i.ativo %}
-                                        <p class="text-xs text-gray-400 flex items-center gap-1"><i data-lucide="info" class="w-3 h-3"></i> Inativo</p>
-                                        {% endif %}
-                                    </div>
-                                    <i data-lucide="chevron-right" class="w-5 h-5 text-gray-300 group-hover:text-primary transition-colors"></i>
-                                </a>
-                            </li>
-                            {% endfor %}
-                        </ul>
-                        {% else %}
-                        <div class="text-center py-6 px-4 bg-gray-50 rounded-xl border border-gray-100 border-dashed">
-                            <i data-lucide="user" class="w-8 h-8 text-gray-300 mx-auto mb-2"></i>
-                            <p class="text-sm font-semibold text-gray-500">Nenhum irmão vinculado</p>
-                        </div>
-                        {% endif %}
-                        
-                        {% if aluno.familia_id %}
-                        <div class="mt-4 pt-4 border-t border-gray-100 text-center">
-                            <p class="text-[10px] font-mono text-gray-400 break-all select-all flex items-center justify-center gap-1">
-                                <i data-lucide="link" class="w-3 h-3"></i> {{ aluno.familia_id }}
-                            </p>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-
+            <div class="mt-2 flex-grow">
+                <p class="font-bold text-gray-800 text-lg group-hover:text-primary transition-colors">Anamnese</p>
+                <p class="text-xs text-gray-400 mt-1">Coleta de dados familiares e histórico</p>
             </div>
-        </div>
+            <div class="text-xs text-primary font-semibold flex items-center gap-1 mt-2">
+                {{ 'Acessar/Editar' if c and c.anamnese else 'Iniciar Preenchimento' }}
+                <i data-lucide="arrow-right" class="w-3 h-3"></i>
+            </div>
+        </a>
+
+        <!-- 2. Avaliação -->
+        <a href="{{ url_for('clinico.avaliacao', aluno_id=aluno.id) }}"
+           class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:border-primary/30 hover:shadow-md transition-all group flex flex-col gap-3 h-full touch-manipulation">
+            <div class="flex items-start justify-between">
+                <div class="w-12 h-12 rounded-2xl bg-primaryLight/50 flex items-center justify-center">
+                    <i data-lucide="search" class="w-6 h-6 text-primary"></i>
+                </div>
+                {% if c and c.avaliacao %}
+                <span class="px-2 py-0.5 text-[10px] font-bold rounded-full {{ 'bg-blue-50 text-blue-700 border border-blue-100' if c.avaliacao.status == 'em_andamento' else 'bg-green-50 text-green-700 border border-green-100' }}">
+                    {{ 'Em andamento' if c.avaliacao.status == 'em_andamento' else 'Concluída' }}
+                </span>
+                {% else %}
+                <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-500 border border-gray-200">Pendente</span>
+                {% endif %}
+            </div>
+            <div class="mt-2 flex-grow">
+                <p class="font-bold text-gray-800 text-lg group-hover:text-primary transition-colors">Avaliação</p>
+                <p class="text-xs text-gray-400 mt-1">Processo investigativo e testes</p>
+            </div>
+            <div class="text-xs text-primary font-semibold flex items-center gap-1 mt-2">
+                {{ 'Acessar/Editar' if c and c.avaliacao else 'Iniciar Avaliação' }}
+                <i data-lucide="arrow-right" class="w-3 h-3"></i>
+            </div>
+        </a>
+
+        <!-- 3. Devolutiva -->
+        <a href="{{ url_for('clinico.devolutiva', aluno_id=aluno.id) }}"
+           class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:border-primary/30 hover:shadow-md transition-all group flex flex-col gap-3 h-full touch-manipulation">
+            <div class="flex items-start justify-between">
+                <div class="w-12 h-12 rounded-2xl bg-primaryLight/50 flex items-center justify-center">
+                    <i data-lucide="file-text" class="w-6 h-6 text-primary"></i>
+                </div>
+                {% if c and c.devolutiva %}
+                {% if c.devolutiva.enviado_familia %}
+                <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-green-50 text-green-700 border border-green-100">Enviada</span>
+                {% else %}
+                <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-orange-50 text-orange-700 border border-orange-100">Não enviada</span>
+                {% endif %}
+                {% else %}
+                <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-500 border border-gray-200">Pendente</span>
+                {% endif %}
+            </div>
+            <div class="mt-2 flex-grow">
+                <p class="font-bold text-gray-800 text-lg group-hover:text-primary transition-colors">Devolutiva</p>
+                <p class="text-xs text-gray-400 mt-1">Relatório final de avaliação</p>
+            </div>
+            <div class="text-xs text-primary font-semibold flex items-center gap-1 mt-2">
+                {{ 'Acessar/Editar' if c and c.devolutiva else 'Criar Devolutiva' }}
+                <i data-lucide="arrow-right" class="w-3 h-3"></i>
+            </div>
+        </a>
+
+        <!-- 4. Plano de Intervenção -->
+        <a href="{{ url_for('clinico.plano', aluno_id=aluno.id) }}"
+           class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:border-primary/30 hover:shadow-md transition-all group flex flex-col gap-3 h-full touch-manipulation">
+            <div class="flex items-start justify-between">
+                <div class="w-12 h-12 rounded-2xl bg-primaryLight/50 flex items-center justify-center">
+                    <i data-lucide="target" class="w-6 h-6 text-primary"></i>
+                </div>
+                {% if c and c.plano %}
+                <span class="px-2 py-0.5 text-[10px] font-bold rounded-full {{ 'bg-green-50 text-green-700 border border-green-100' if c.plano.status == 'ativo' else 'bg-orange-50 text-orange-700 border border-orange-100' }}">
+                    {{ c.plano.status | title }}
+                </span>
+                {% else %}
+                <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-gray-100 text-gray-500 border border-gray-200">Pendente</span>
+                {% endif %}
+            </div>
+            <div class="mt-2 flex-grow">
+                <p class="font-bold text-gray-800 text-lg group-hover:text-primary transition-colors">Plano de Intervenção</p>
+                <p class="text-xs text-gray-400 mt-1">Metas e objetivos terapêuticos</p>
+            </div>
+            <div class="text-xs text-primary font-semibold flex items-center gap-1 mt-2">
+                {{ 'Acessar/Editar' if c and c.plano else 'Criar Plano' }}
+                <i data-lucide="arrow-right" class="w-3 h-3"></i>
+            </div>
+        </a>
+
+        <!-- 5. Documentos -->
+        <a href="{{ url_for('clinico.documentos', aluno_id=aluno.id) }}"
+           class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:border-primary/30 hover:shadow-md transition-all group flex flex-col gap-3 h-full sm:col-span-2 lg:col-span-1 touch-manipulation">
+            <div class="flex items-start justify-between">
+                <div class="w-12 h-12 rounded-2xl bg-primaryLight/50 flex items-center justify-center">
+                    <i data-lucide="folder" class="w-6 h-6 text-primary"></i>
+                </div>
+                <span class="px-2 py-0.5 text-[10px] font-bold rounded-full {{ 'bg-blue-50 text-blue-700 border border-blue-100' if c and c.n_documentos else 'bg-gray-100 text-gray-500 border border-gray-200' }}">
+                    {{ c.n_documentos ~ ' arquiv.' if c and c.n_documentos else '0 arquiv.' }}
+                </span>
+            </div>
+            <div class="mt-2 flex-grow">
+                <p class="font-bold text-gray-800 text-lg group-hover:text-primary transition-colors">Documentos</p>
+                <p class="text-xs text-gray-400 mt-1">Laudos, atestados e anexos</p>
+            </div>
+            <div class="text-xs text-primary font-semibold flex items-center gap-1 mt-2">
+                Gerenciar Arquivos <i data-lucide="arrow-right" class="w-3 h-3"></i>
+            </div>
+        </a>
     </div>
 
-    <!-- Tab Content: Módulo Próximas Aulas -->
-    <div x-cloak x-show="currentTab === 'aulas'"
-         x-transition:enter="transition ease-out duration-300 transform"
-         x-transition:enter-start="opacity-0 translate-y-2"
-         x-transition:enter-end="opacity-100 translate-y-0">
-        
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="px-6 py-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
-                        <i data-lucide="calendar-clock" class="w-5 h-5"></i>
-                    </div>
-                    <div>
-                        <h3 class="font-bold text-gray-800 text-lg">Próximas Aulas Agendadas</h3>
-                        <p class="text-sm text-gray-500">{{ proximas_aulas|length }} aula(s) no sistema</p>
-                    </div>
+    <!-- Timeline de Aulas Recentes -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-primaryLight/30 flex items-center justify-center text-primary">
+                    <i data-lucide="history" class="w-5 h-5"></i>
                 </div>
-                <!-- Placeholder for future "New Schedule" button -->
-                <button class="px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 font-semibold rounded-xl text-sm border border-gray-200 transition-colors flex items-center justify-center gap-2">
-                    <i data-lucide="plus" class="w-4 h-4"></i> Agendar Aula
-                </button>
+                <div>
+                    <h3 class="font-bold text-gray-800 text-lg">Sessões Recentes</h3>
+                    <p class="text-sm text-gray-500">Últimas 20 sessões</p>
+                </div>
             </div>
-            
-            {% if proximas_aulas %}
-            <div class="divide-y divide-gray-50">
-                {% for a in proximas_aulas %}
-                <div class="p-4 sm:p-6 hover:bg-gray-50 transition-colors flex flex-col sm:flex-row gap-4 items-start sm:items-center group">
-                    <!-- Date badge -->
-                    <div class="bg-white border text-center rounded-xl p-2 w-full sm:w-20 shadow-sm shrink-0 flex flex-row sm:flex-col items-center justify-center gap-2 sm:gap-0 border-primary/20 bg-primaryLight/10">
-                        <span class="text-xs font-bold text-primary uppercase block">{{ a.data_hora[5:7] }}/{{ a.data_hora[0:4] }}</span>
-                        <span class="text-2xl font-black text-gray-800 tracking-tighter">{{ a.data_hora[8:10] }}</span>
-                    </div>
-                    
-                    <div class="flex-1">
-                        <div class="flex items-center gap-2 mb-1">
-                            <i data-lucide="clock" class="w-4 h-4 text-gray-400"></i>
-                            <span class="font-bold text-gray-700">{{ a.data_hora[11:16] }}</span>
-                            <span class="text-gray-300">•</span>
-                            <span class="text-sm font-medium text-gray-500">{{ a.duracao_min }} min</span>
+        </div>
+        
+        <div class="p-6 relative">
+            {% if historico_aulas %}
+            <div class="absolute left-[39px] sm:left-[43px] top-6 bottom-6 w-0.5 bg-gray-100"></div>
+
+            <div class="space-y-5 relative">
+                {% for a in historico_aulas %}
+                {% set reg = a.registros_sessao[0] if a.get('registros_sessao') else None %}
+                {# texto da anotação: novos usam descricao, antigos usam conteudo_trabalhado #}
+                {% set texto_reg = (reg.descricao if reg and reg.descricao else (reg.conteudo_trabalhado if reg and reg.get('conteudo_trabalhado') else '')) if reg else '' %}
+                <div class="flex gap-4 sm:gap-6">
+                    <!-- Bolinha da Timeline -->
+                    <div class="relative shrink-0 mt-1">
+                        {% if a.status == 'realizada' %}
+                        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-green-500 text-white flex items-center justify-center shadow-md ring-4 ring-white z-10 relative">
+                            <i data-lucide="check" class="w-4 h-4 sm:w-5 sm:h-5"></i>
                         </div>
-                        <div class="flex items-center gap-2 mt-2">
-                            <span class="px-2.5 py-1 text-xs font-bold rounded-full bg-blue-50 text-blue-700 inline-flex items-center gap-1 border border-blue-100">
-                                <div class="w-1.5 h-1.5 bg-blue-500 rounded-full"></div> Agendada
-                            </span>
+                        {% elif 'cancelada' in a.status %}
+                        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-red-300 text-white flex items-center justify-center shadow-md ring-4 ring-white z-10 relative">
+                            <i data-lucide="x" class="w-4 h-4 sm:w-5 sm:h-5"></i>
                         </div>
+                        {% else %}
+                        <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-300 text-white flex items-center justify-center shadow-md ring-4 ring-white z-10 relative">
+                            <i data-lucide="clock" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+                        </div>
+                        {% endif %}
                     </div>
-                    
-                    <div class="w-full sm:w-auto flex sm:flex-col gap-2 mt-2 sm:mt-0">
-                        <form method="POST" action="{{ url_for('agenda.realizada', aula_id=a.id) }}">
-                            <button type="submit"
-                                    class="w-full sm:w-auto px-4 py-2 bg-white border border-gray-200 text-gray-600 font-semibold rounded-lg text-xs hover:bg-green-50 hover:text-green-700 hover:border-green-200 transition-colors flex items-center gap-1.5">
-                                <i data-lucide="clipboard-check" class="w-3.5 h-3.5"></i>
-                                Registrar Aula
-                            </button>
-                        </form>
+
+                    <!-- Card -->
+                    <div class="flex-1 bg-white border border-gray-100 rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <h4 class="font-bold text-gray-800">
+                                        {{ a.data_hora[8:10] }}/{{ a.data_hora[5:7] }}/{{ a.data_hora[0:4] }}
+                                    </h4>
+                                    <span class="text-xs font-semibold text-gray-400">· {{ a.data_hora[11:16] }}</span>
+                                    {% if reg %}
+                                        <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-100">Registrada</span>
+                                        {% if reg.enviado_familia %}
+                                        <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-100 flex items-center gap-1">
+                                            <i data-lucide="check-circle" class="w-3 h-3"></i> Enviado
+                                        </span>
+                                        {% endif %}
+                                    {% elif a.status == 'realizada' %}
+                                        <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100">Sem registro</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                                {% if reg and not reg.enviado_familia %}
+                                <a href="{{ url_for('registros.enviar_familia', registro_id=reg.id) }}"
+                                   class="text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1 touch-manipulation">
+                                    <i data-lucide="send" class="w-3.5 h-3.5"></i> Enviar
+                                </a>
+                                {% endif %}
+                                {% if reg %}
+                                <a href="{{ url_for('registros.editar', registro_id=reg.id) }}"
+                                   class="text-primary bg-primaryLight/50 hover:bg-primaryLight px-3 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1 touch-manipulation">
+                                    <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> Editar
+                                </a>
+                                {% elif a.status == 'realizada' %}
+                                <a href="{{ url_for('registros.novo', aula_id=a.id) }}"
+                                   class="text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1 touch-manipulation">
+                                    <i data-lucide="plus" class="w-3.5 h-3.5"></i> Registrar
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        {% if texto_reg %}
+                        <p class="text-sm text-gray-600 mt-2 line-clamp-2">{{ texto_reg }}</p>
+                        {% endif %}
+
+                        {% if reg and reg.fotos_sessao %}
+                        <div class="mt-3 flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                            {% for foto in reg.fotos_sessao %}
+                            <a href="{{ url_for('registros.galeria', aluno_id=aluno.id) }}"
+                               class="w-14 h-14 sm:w-16 sm:h-16 shrink-0 rounded-lg overflow-hidden border border-gray-100 bg-gray-50 touch-manipulation">
+                                <img src="{{ url_for('registros.servir_foto', foto_id=foto.id) }}" class="w-full h-full object-cover">
+                            </a>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
                 {% endfor %}
             </div>
             {% else %}
-            <div class="p-10 sm:p-16 text-center flex flex-col items-center justify-center">
-                <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4 border border-dashed border-gray-200">
-                    <i data-lucide="calendar-x-2" class="w-8 h-8 text-gray-300"></i>
-                </div>
-                <h4 class="text-lg font-bold text-gray-800 mb-1">Nenhuma aula agendada</h4>
-                <p class="text-gray-500 max-w-sm">Você pode agendar aulas individuais ou configurar o dia e horário fixo nos dados do aluno para que o sistema gere o mês todo automaticamente.</p>
+            <div class="py-10 text-center flex flex-col items-center justify-center">
+                <i data-lucide="history" class="w-10 h-10 text-gray-300 mb-3"></i>
+                <h4 class="text-base font-bold text-gray-800 mb-1">Sem histórico</h4>
+                <p class="text-gray-500 text-sm max-w-sm">Este paciente ainda não possui sessões registradas.</p>
             </div>
             {% endif %}
         </div>
     </div>
     
-    <!-- Tab Content: Módulo Histórico Clínico / Aulas Passadas -->
-    <div x-cloak x-show="currentTab === 'historico'"
-         x-transition:enter="transition ease-out duration-300 transform"
-         x-transition:enter-start="opacity-0 translate-y-2"
-         x-transition:enter-end="opacity-100 translate-y-0">
-         
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="px-6 py-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
-                        <i data-lucide="history" class="w-5 h-5"></i>
-                    </div>
-                    <div>
-                        <h3 class="font-bold text-gray-800 text-lg">Histórico de Aulas</h3>
-                        <p class="text-sm text-gray-500">Últimos 10 registros</p>
-                    </div>
-                </div>
-            </div>
-            
-            {% if historico_aulas %}
-            <div class="p-6 relative">
-                <!-- Linha vertical da timeline -->
-                <div class="absolute left-[39px] sm:left-[43px] top-6 bottom-6 w-0.5 bg-gray-100"></div>
-                
-                <div class="space-y-6 relative">
-                    {% for a in historico_aulas %}
-                    {% set reg = a.registros_aula[0] if a.get('registros_aula') else None %}
-                    <div class="flex gap-4 sm:gap-6 group" x-data="{ expanded: false }">
-                        <!-- Bolinha da Timeline -->
-                        <div class="relative shrink-0 mt-1">
-                            {% if a.status == 'realizada' %}
-                            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-green-500 text-white flex items-center justify-center shadow-md ring-4 ring-white z-10 relative">
-                                <i data-lucide="check" class="w-4 h-4 sm:w-5 sm:h-5"></i>
-                            </div>
-                            {% elif a.status == 'cancelada' %}
-                            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-red-400 text-white flex items-center justify-center shadow-md ring-4 ring-white z-10 relative">
-                                <i data-lucide="x" class="w-4 h-4 sm:w-5 sm:h-5"></i>
-                            </div>
-                            {% else %}
-                            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-300 text-white flex items-center justify-center shadow-md ring-4 ring-white z-10 relative">
-                                <i data-lucide="clock" class="w-4 h-4 sm:w-5 sm:h-5"></i>
-                            </div>
-                            {% endif %}
-                        </div>
-
-                        <!-- Card de Conteúdo -->
-                        <div class="flex-1 bg-white border border-gray-100 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                             @click="expanded = !expanded">
-                            
-                            <!-- Header do Card -->
-                            <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-2 mb-2">
-                                <div>
-                                    <div class="flex items-center gap-2 mb-1">
-                                        <h4 class="font-bold text-gray-800 text-base sm:text-lg">
-                                            {{ a.data_hora[8:10] }}/{{ a.data_hora[5:7] }}/{{ a.data_hora[0:4] }}
-                                        </h4>
-                                        <span class="text-xs font-semibold text-gray-400">· {{ a.data_hora[11:16] }} ({{ a.duracao_min }} min)</span>
-                                    </div>
-                                    {% if reg %}
-                                        <div class="flex items-center gap-2">
-                                            {% if reg.participacao == 5 %}
-                                                <span class="inline-flex items-center gap-1 text-xs font-bold text-yellow-600 bg-yellow-50 px-2.5 py-1 rounded-lg">🌟 Excelente</span>
-                                            {% elif reg.participacao == 4 %}
-                                                <span class="inline-flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-lg">😊 Boa</span>
-                                            {% elif reg.participacao == 3 %}
-                                                <span class="inline-flex items-center gap-1 text-xs font-bold text-orange-600 bg-orange-50 px-2.5 py-1 rounded-lg">😐 Regular</span>
-                                            {% elif reg.participacao == 2 %}
-                                                <span class="inline-flex items-center gap-1 text-xs font-bold text-red-600 bg-red-50 px-2.5 py-1 rounded-lg">😟 Difícil</span>
-                                            {% endif %}
-                                        </div>
-                                    {% else %}
-                                        <span class="text-xs text-gray-400 italic">Sem registro detalhado</span>
-                                    {% endif %}
-                                </div>
-                                {% if reg %}
-                                <a href="{{ url_for('registros.editar', registro_id=reg.id) }}" @click.stop
-                                   class="text-primary bg-primaryLight/50 hover:bg-primaryLight px-3 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1 self-start shrink-0">
-                                    <i data-lucide="edit-3" class="w-3.5 h-3.5"></i> Editar
-                                </a>
-                                {% endif %}
-                            </div>
-
-                            <!-- Resumo Expansível -->
-                            {% if reg %}
-                            <div class="mt-3">
-                                <p class="text-sm text-gray-600" :class="expanded ? 'line-clamp-none' : 'line-clamp-2'">
-                                    <strong>Conteúdo:</strong> {{ reg.descricao }}
-                                </p>
-                                
-                                <div x-show="expanded" x-collapse x-cloak>
-                                    <div class="mt-3 pt-3 border-t border-gray-100 space-y-3">
-                                        {% if reg.evolucao %}
-                                        <p class="text-sm text-gray-600">
-                                            <strong>Evolução / Próximos Passos:</strong><br>
-                                            {{ reg.evolucao }}
-                                        </p>
-                                        {% endif %}
-                                        
-                                        {% if reg.observacoes %}
-                                        <p class="text-sm text-gray-600">
-                                            <strong>Observações para Família:</strong><br>
-                                            {{ reg.observacoes }}
-                                        </p>
-                                        {% endif %}
-                                        
-                                        <!-- Miniaturas de Fotos -->
-                                        {% if reg.fotos_sessao %}
-                                        <div class="mt-4 grid grid-cols-4 sm:grid-cols-5 gap-2" @click.stop>
-                                            {% for foto in reg.fotos_sessao %}
-                                            <a href="{{ url_for('registros.galeria', aluno_id=aluno.id) }}"
-                                               class="relative aspect-square rounded-lg overflow-hidden border border-gray-100 hover:ring-2 ring-primary/50 transition-all bg-gray-50">
-                                                <img src="{{ url_for('registros.servir_foto', foto_id=foto.id) }}" class="w-full h-full object-cover">
-                                                {% if foto.legenda %}
-                                                <div class="absolute inset-x-0 bottom-0 bg-black/50 text-[8px] text-white p-1 truncate">{{ foto.legenda }}</div>
-                                                {% endif %}
-                                            </a>
-                                            {% endfor %}
-                                        </div>
-                                        <p class="text-[10px] text-blue-500 mt-1 font-semibold"><i data-lucide="layout-grid" class="w-3 h-3 inline"></i> Toque na foto para abrir a galeria</p>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                                
-                                <!-- Indicador de Expansão -->
-                                <div class="mt-3 text-center" x-show="!expanded">
-                                    <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center justify-center gap-1 group-hover:text-primary transition-colors cursor-pointer">
-                                        Ver detalhes <i data-lucide="chevron-down" class="w-3 h-3"></i>
-                                    </span>
-                                </div>
-                                <div class="mt-3 text-center" x-show="expanded" x-cloak>
-                                    <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center justify-center gap-1 group-hover:text-primary transition-colors cursor-pointer">
-                                        Ocultar detalhes <i data-lucide="chevron-up" class="w-3 h-3"></i>
-                                    </span>
-                                </div>
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% else %}
-            <div class="p-10 sm:p-16 text-center flex flex-col items-center justify-center">
-                <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4 border border-dashed border-gray-200">
-                    <i data-lucide="history" class="w-8 h-8 text-gray-300"></i>
-                </div>
-                <h4 class="text-lg font-bold text-gray-800 mb-1">Sem histórico</h4>
-                <p class="text-gray-500 max-w-sm">Este aluno ainda não possui aulas concluídas ou canceladas registradas no sistema.</p>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- Tab Content: Fotos -->
-    <div x-cloak x-show="currentTab === 'fotos'"
-         x-transition:enter="transition ease-out duration-300 transform"
-         x-transition:enter-start="opacity-0 translate-y-2"
-         x-transition:enter-end="opacity-100 translate-y-0">
-
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div class="px-6 py-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
-                        <i data-lucide="image" class="w-5 h-5"></i>
-                    </div>
-                    <div>
-                        <h3 class="font-bold text-gray-800 text-lg">Fotos das Sessões</h3>
-                        <p class="text-sm text-gray-500">{{ foto_count }} foto(s) registradas</p>
-                    </div>
-                </div>
-                {% if foto_count %}
-                <a href="{{ url_for('registros.galeria', aluno_id=aluno.id) }}"
-                   class="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold rounded-xl text-sm border border-blue-100 transition-colors flex items-center justify-center gap-2">
-                    <i data-lucide="layout-grid" class="w-4 h-4"></i> Abrir Galeria
-                </a>
-                {% endif %}
-            </div>
-
-            {% if foto_count %}
-            <div class="p-6">
-                <p class="text-sm text-gray-600 mb-4">
-                    Clique em <strong>Abrir Galeria</strong> para ver todas as fotos com lightbox e opção de exclusão.
-                    Para adicionar fotos, edite o registro de uma aula realizada.
-                </p>
-                <a href="{{ url_for('registros.galeria', aluno_id=aluno.id) }}"
-                   class="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-sm">
-                    <i data-lucide="image" class="w-5 h-5"></i>
-                    Ver {{ foto_count }} foto(s) na galeria
-                </a>
-            </div>
-            {% else %}
-            <div class="p-10 sm:p-16 text-center flex flex-col items-center justify-center">
-                <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4 border border-dashed border-gray-200">
-                    <i data-lucide="camera-off" class="w-8 h-8 text-gray-300"></i>
-                </div>
-                <h4 class="text-lg font-bold text-gray-800 mb-1">Nenhuma foto ainda</h4>
-                <p class="text-gray-500 max-w-sm text-sm">
-                    Após marcar uma aula como realizada e salvar o registro, você pode adicionar fotos da sessão ao editar o registro.
-                </p>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-
 </div>
 {% endblock %}

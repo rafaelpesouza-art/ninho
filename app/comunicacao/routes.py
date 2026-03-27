@@ -4,6 +4,7 @@ from flask import render_template, request, redirect, url_for, flash, session, R
 from . import comunicacao_bp
 from .model import (
     listar_registros_periodo, gerar_texto_devolutiva, gerar_texto_relatorio,
+    gerar_prefill_relatorio,
     salvar_comunicacao, listar_historico, buscar_comunicacao,
     HUMOR_LABELS, PARTICIPACAO_STARS, TIPO_LABELS,
 )
@@ -167,14 +168,24 @@ def relatorio():
         flash("Aluno não encontrado.", "danger")
         return redirect(url_for("comunicacao.index"))
 
+    # Padrão: último mês completo
+    hoje = date.today()
+    primeiro_mes = hoje.replace(day=1)
+    if primeiro_mes.month == 1:
+        ini_padrao = date(primeiro_mes.year - 1, 12, 1)
+    else:
+        ini_padrao = date(primeiro_mes.year, primeiro_mes.month - 1, 1)
+    fim_padrao = (primeiro_mes - timedelta(days=1))
+
     registros = []
-    periodo_inicio = ""
-    periodo_fim = ""
+    periodo_inicio = ini_padrao.isoformat()
+    periodo_fim    = fim_padrao.isoformat()
 
     if request.method == "POST":
         periodo_inicio = request.form.get("periodo_inicio", "").strip()
         periodo_fim    = request.form.get("periodo_fim", "").strip()
 
+    if request.method == "POST":
         if not periodo_inicio or not periodo_fim:
             flash("Informe o período.", "danger")
         else:
@@ -189,14 +200,15 @@ def relatorio():
             except Exception as e:
                 flash(f"Erro ao buscar registros: {e}", "danger")
 
+    prefill = gerar_prefill_relatorio(registros, aluno["nome"], periodo_inicio, periodo_fim) if registros else {}
+
     return render_template(
         "comunicacao/relatorio.html",
         aluno=aluno,
         registros=registros,
         periodo_inicio=periodo_inicio,
         periodo_fim=periodo_fim,
-        humor_labels=HUMOR_LABELS,
-        participacao_stars=PARTICIPACAO_STARS,
+        prefill=prefill,
     )
 
 
@@ -221,9 +233,11 @@ def relatorio_salvar():
     periodo_inicio  = request.form.get("periodo_inicio", "").strip()
     periodo_fim     = request.form.get("periodo_fim", "").strip()
 
+    resumo = request.form.get("resumo", "").strip()
     texto_wa = gerar_texto_relatorio(
         aluno_nome, periodo_inicio, periodo_fim,
-        titulo, pontos_fortes, pontos_atencao, proximos_passos
+        titulo, pontos_fortes, pontos_atencao, proximos_passos,
+        resumo=resumo,
     )
 
     try:
@@ -236,7 +250,7 @@ def relatorio_salvar():
             "titulo":          titulo,
             "periodo_inicio":  periodo_inicio,
             "periodo_fim":     periodo_fim,
-            "resumo":          request.form.get("resumo", "").strip(),
+            "resumo":          resumo,
             "pontos_fortes":   pontos_fortes,
             "pontos_atencao":  pontos_atencao,
             "proximos_passos": proximos_passos,

@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from flask import render_template, request, redirect, url_for, flash, session, jsonify
 from . import agenda_bp
 from .model import (
@@ -6,6 +6,11 @@ from .model import (
     criar_aula_avulsa, cancelar_aula, reagendar_aula, marcar_realizada,
     listar_feriados, criar_feriado, deletar_feriado, cancelar_aulas_em_feriado,
     gerar_aulas_mes_todos_alunos, montar_calendario, _navegar_mes, MESES, STATUS_LABELS,
+)
+from .lembretes import (
+    buscar_config_lembrete, salvar_config_lembrete,
+    listar_sessoes_amanha, marcar_lembrete_enviado, enriquecer_sessoes,
+    MSG_LEMBRETE_PADRAO, MSG_CONFIRMACAO_PADRAO, MSG_CANCELAMENTO_PADRAO,
 )
 from ..extensions import get_supabase
 from ..auth.decorators import login_required
@@ -266,3 +271,54 @@ def cancelar_aulas_feriado_view(feriado_id):
     except Exception as e:
         flash(f"Erro: {e}", "danger")
     return redirect(url_for("agenda.feriados"))
+
+
+# ---------------------------------------------------------------------------
+# LEMBRETES DE SESSÃO
+# ---------------------------------------------------------------------------
+
+@agenda_bp.route("/lembretes")
+@login_required
+def lembretes():
+    sb = _sb()
+    professor_id = session["user_id"]
+    config  = buscar_config_lembrete(sb, professor_id)
+    sessoes_raw = listar_sessoes_amanha(sb, professor_id)
+    sessoes = enriquecer_sessoes(sessoes_raw, config, tipo="lembrete")
+    amanha  = date.today() + timedelta(days=1)
+    return render_template(
+        "agenda/lembretes.html",
+        sessoes=sessoes,
+        config=config,
+        amanha=amanha,
+        msg_lembrete_padrao=MSG_LEMBRETE_PADRAO,
+        msg_confirmacao_padrao=MSG_CONFIRMACAO_PADRAO,
+        msg_cancelamento_padrao=MSG_CANCELAMENTO_PADRAO,
+    )
+
+
+@agenda_bp.route("/lembretes/config", methods=["POST"])
+@login_required
+def salvar_config_lembretes():
+    sb = _sb()
+    professor_id = session["user_id"]
+    try:
+        salvar_config_lembrete(sb, professor_id, request.form)
+        flash("Configurações de lembrete salvas!", "success")
+    except Exception as e:
+        flash(f"Erro ao salvar: {e}", "danger")
+    return redirect(url_for("agenda.lembretes"))
+
+
+@agenda_bp.route("/aula/<aula_id>/lembrete/enviado", methods=["POST"])
+@login_required
+def marcar_lembrete(aula_id):
+    sb = _sb()
+    professor_id = session["user_id"]
+    try:
+        marcar_lembrete_enviado(sb, professor_id, aula_id)
+    except Exception:
+        pass
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True})
+    return redirect(request.referrer or url_for("agenda.lembretes"))

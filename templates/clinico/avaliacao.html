@@ -1,0 +1,444 @@
+{% extends "base.html" %}
+{% block title %}Avaliação – {{ aluno.nome }}{% endblock %}
+{% set active_module = 'alunos' %}
+
+{% block page_header %}
+<div class="flex items-center justify-between mb-2 print:hidden">
+    <div class="flex items-center gap-3">
+        <a href="{{ url_for('alunos.ficha', aluno_id=aluno.id, tab='clinico') }}"
+           class="p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50">
+           <i data-lucide="arrow-left" class="w-6 h-6"></i>
+        </a>
+        <div>
+            <p class="text-xs text-gray-500 font-semibold">{{ aluno.nome }}</p>
+            <h1 class="text-2xl font-bold text-gray-800 tracking-tight">Avaliação</h1>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto pb-24 md:pb-6 space-y-6" x-data="avaliacaoApp()">
+
+    {% if request.args.get('sugerir_fase') == 'intervencao' and aluno.get('fase_atual') not in ('intervencao', 'alta') %}
+    <!-- Banner: Sugestão de mudança de fase -->
+    <div class="bg-green-50 border border-green-200 rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+        <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+            <i data-lucide="award" class="w-5 h-5 text-green-600"></i>
+        </div>
+        <div class="flex-1">
+            <p class="font-bold text-green-800">Avaliação concluída!</p>
+            <p class="text-sm text-green-700 mt-0.5">O paciente está pronto para a fase de <strong>Intervenção</strong>. Deseja atualizar a fase agora?</p>
+        </div>
+        <form method="POST" action="{{ url_for('clinico.atualizar_fase', aluno_id=aluno.id) }}" class="shrink-0">
+            <input type="hidden" name="fase" value="intervencao">
+            <button type="submit"
+                    class="px-4 py-2 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 transition-colors touch-manipulation">
+                Mover para Intervenção
+            </button>
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- Form -->
+    <form @submit.prevent="salvar" class="space-y-6 print:hidden">
+        {% if avaliacao %}
+        <input type="hidden" name="avaliacao_id" value="{{ avaliacao.id }}">
+        {% endif %}
+        <!-- Hidden input for the final normal form submit status if needed, but we use AJAX -->
+
+        <!-- Top Save Button -->
+        <div class="flex items-center justify-between bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-4">
+            <div class="flex flex-col">
+                <span class="text-sm font-bold text-gray-800">Status</span>
+                <span class="text-xs font-bold px-2 py-0.5 mt-1 rounded-full border inline-block text-center flex items-center justify-center gap-1"
+                      :class="status === 'concluida' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'"
+                      x-text="status === 'concluida' ? 'Concluída' : 'Em Andamento'"></span>
+                <span class="text-[10px] text-gray-400 mt-1" x-text="syncTexto"></span>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-2">
+                <button type="button" onclick="window.print()" x-show="_avaliacaoId"
+                        class="px-4 py-2.5 bg-white text-gray-700 font-bold rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 shadow-sm touch-manipulation">
+                    <i data-lucide="file-down" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Exportar PDF</span>
+                </button>
+                <button type="submit" :disabled="salvando"
+                        class="px-5 py-2.5 bg-primary text-white font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 touch-manipulation">
+                    <i data-lucide="save" class="w-4 h-4" x-show="!salvando"></i>
+                    <i data-lucide="loader-2" class="w-4 h-4 animate-spin" x-show="salvando" x-cloak></i>
+                    <span x-text="salvando ? 'Salvando...' : 'Salvar'"></span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Cabeçalho -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="bg-primaryLight/30 px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+                <i data-lucide="calendar-check" class="w-5 h-5 text-primary"></i>
+                <h3 class="font-bold text-gray-800">Dados da Avaliação</h3>
+            </div>
+            <div class="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1.5">Data de Início</label>
+                    <input type="date" x-model="dataInicio"
+                           class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-base bg-gray-50 focus:bg-white touch-manipulation">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1.5">Data de Conclusão</label>
+                    <input type="date" x-model="dataFim"
+                           class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-base bg-gray-50 focus:bg-white touch-manipulation">
+                </div>
+            </div>
+        </div>
+
+        <!-- Campos Fixos -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+                <i data-lucide="clipboard-list" class="w-5 h-5 text-gray-400"></i>
+                <h3 class="font-bold text-gray-800">Recursos e Observações Globais</h3>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1.5 flex items-center gap-1">
+                        Instrumentos Utilizados
+                    </label>
+                    <input type="text" x-model="instrumentos" placeholder="Ex: Matrizes Progressivas, Bateria ABC..."
+                           class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 text-base bg-gray-50 focus:bg-white touch-manipulation">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-green-700 mb-1.5 flex items-center gap-1">
+                            <i data-lucide="trending-up" class="w-4 h-4"></i> Pontos Fortes
+                        </label>
+                        <textarea x-model="pontosFortes" rows="3" placeholder="Habilidades observadas..."
+                                  class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-200 text-base bg-gray-50 focus:bg-white resize-y touch-manipulation"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-amber-700 mb-1.5 flex items-center gap-1">
+                            <i data-lucide="alert-triangle" class="w-4 h-4"></i> Pontos de Atenção
+                        </label>
+                        <textarea x-model="pontosAtencao" rows="3" placeholder="Restrições, atrasos..."
+                                  class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-200 text-base bg-gray-50 focus:bg-white resize-y touch-manipulation"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Seleção de Modo para Conteúdo Principal -->
+        <div x-show="modo === null" class="grid grid-cols-1 sm:grid-cols-2 gap-4" x-transition>
+            <!-- Opção Áreas -->
+            <button type="button" @click="setModo('areas')"
+                    class="bg-white hover:bg-gray-50 border-2 border-gray-100 hover:border-primary/50 rounded-2xl p-6 text-center transition-all group flex flex-col items-center gap-3 touch-manipulation">
+                <div class="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center">
+                    <i data-lucide="grid-3x3" class="w-7 h-7 text-blue-500 group-hover:scale-110 transition-transform"></i>
+                </div>
+                <div>
+                    <h4 class="font-bold text-gray-800 text-lg group-hover:text-primary transition-colors">Áreas Padrão</h4>
+                    <p class="text-sm text-gray-500 mt-1">Dividir a observação por domínios</p>
+                    {% if template_padrao %}
+                    <p class="text-xs text-green-600 font-bold mt-2 bg-green-50 rounded-full px-2 py-1 inline-block border border-green-200">Template Padrão Disponível</p>
+                    {% endif %}
+                </div>
+            </button>
+
+            <!-- Opção Livre -->
+            <button type="button" @click="setModo('livre')"
+                    class="bg-white hover:bg-gray-50 border-2 border-gray-100 hover:border-primary/50 rounded-2xl p-6 text-center transition-all group flex flex-col items-center gap-3 touch-manipulation">
+                <div class="w-14 h-14 rounded-full bg-amber-50 flex items-center justify-center">
+                    <i data-lucide="type" class="w-7 h-7 text-amber-500 group-hover:scale-110 transition-transform"></i>
+                </div>
+                <div>
+                    <h4 class="font-bold text-gray-800 text-lg group-hover:text-primary transition-colors">Texto Livre</h4>
+                    <p class="text-sm text-gray-500 mt-1">Laudo em corpo único</p>
+                </div>
+            </button>
+        </div>
+
+        <!-- Modo Áreas -->
+        <div x-show="modo === 'areas'" x-cloak class="space-y-4" x-transition>
+            <div class="flex items-center justify-between">
+                <h3 class="font-bold text-gray-800 flex items-center gap-2">
+                    <i data-lucide="grid-3x3" class="w-5 h-5 text-primary"></i> Domínios Avaliativos
+                </h3>
+                <div class="flex items-center gap-2">
+                    <button type="button" @click="modo = null" class="text-sm text-gray-500 hover:text-gray-800 font-semibold px-2">Trocar</button>
+                    <button type="button" @click="addArea()"
+                            class="flex items-center gap-1.5 px-3 py-1.5 bg-primaryLight text-primary text-xs font-bold rounded-lg hover:bg-primary/20 transition-colors touch-manipulation">
+                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add
+                    </button>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <template x-for="(a, i) in areas" :key="i">
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden" x-data="{ open: true }">
+                        <div class="px-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+                            <button type="button" @click="open = !open" class="flex-1 py-3 flex items-center gap-2 touch-manipulation text-left">
+                                <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform" :class="open ? 'rotate-180' : ''"></i>
+                                <span class="font-bold text-gray-700 truncate" x-text="a.area || 'Área sem nome'"></span>
+                            </button>
+                            <div class="flex items-center shrink-0">
+                                <button type="button" @click="moveArea(i, -1)" :disabled="i === 0"
+                                        class="p-2 text-gray-400 hover:text-primary disabled:opacity-30 touch-manipulation">
+                                    <i data-lucide="arrow-up" class="w-4 h-4"></i>
+                                </button>
+                                <button type="button" @click="moveArea(i, 1)" :disabled="i === areas.length - 1"
+                                        class="p-2 text-gray-400 hover:text-primary disabled:opacity-30 touch-manipulation">
+                                    <i data-lucide="arrow-down" class="w-4 h-4"></i>
+                                </button>
+                                <div class="w-px h-4 bg-gray-200 mx-1"></div>
+                                <button type="button" @click="removeArea(i)"
+                                        class="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg touch-manipulation">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div x-show="open" x-collapse>
+                            <div class="p-4 space-y-3 bg-white">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Nome da Área</label>
+                                    <input type="text" x-model="a.area" placeholder="Ex: Desenvolvimento Motor"
+                                           class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 font-bold text-gray-800 bg-gray-50 focus:bg-white touch-manipulation">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 mb-1 uppercase tracking-wide">Observações do Domínio</label>
+                                    <textarea x-model="a.observacao" rows="4" placeholder="Desempenho da criança neste domínio..."
+                                              class="w-full px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 text-base bg-gray-50 focus:bg-white resize-y touch-manipulation"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+                <p x-show="areas.length === 0" class="text-sm font-semibold text-gray-400 text-center py-6 border-2 border-dashed border-gray-100 rounded-2xl bg-white">
+                    Nenhuma área adicionada. Clique em "Add" para criar.
+                </p>
+            </div>
+        </div>
+
+        <!-- Modo Livre -->
+        <div x-show="modo === 'livre'" x-cloak class="space-y-4" x-transition>
+            <div class="flex items-center justify-between">
+                <h3 class="font-bold text-gray-800 flex items-center gap-2">
+                    <i data-lucide="type" class="w-5 h-5 text-amber-500"></i> Relatório de Avaliação
+                </h3>
+                <button type="button" @click="modo = null" class="text-sm text-gray-500 hover:text-gray-800 font-semibold px-2">Trocar modo</button>
+            </div>
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="p-6">
+                    <textarea x-model="conteudoLivre" rows="12" placeholder="Digite o relatório global..."
+                              class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-400 text-base bg-gray-50 focus:bg-white resize-y touch-manipulation"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Observações Gerais ao Final -->
+        <div x-show="modo !== null" x-cloak class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="message-square" class="w-5 h-5 text-gray-400"></i>
+                    <h3 class="font-bold text-gray-800">Notas de Avaliação (Interno)</h3>
+                </div>
+            </div>
+            <div class="p-6">
+                <textarea x-model="observacoes" rows="3" placeholder="Informações de suporte não inclusas na devolutiva..."
+                          class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 text-base bg-gray-50 focus:bg-white resize-y touch-manipulation"></textarea>
+            </div>
+        </div>
+
+        <div x-show="modo !== null" class="flex flex-col sm:flex-row gap-3 pt-2">
+            <button type="button" onclick="window.print()" x-show="_avaliacaoId"
+                    class="flex-1 px-6 py-3 bg-white text-gray-700 font-bold rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 shadow-sm touch-manipulation">
+                <i data-lucide="file-down" class="w-5 h-5"></i> Exportar PDF
+            </button>
+            <button type="button" @click="concluir" :hidden="status === 'concluida'"
+                    class="flex-1 px-6 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-colors flex items-center justify-center gap-2 shadow-sm touch-manipulation">
+                <i data-lucide="check-circle" class="w-4 h-4"></i> Marca como Concluída
+            </button>
+            <button type="submit" :disabled="salvando"
+                    class="flex-1 px-6 py-3 bg-primary text-white font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 touch-manipulation">
+                <i data-lucide="save" class="w-4 h-4" x-show="!salvando"></i>
+                <i data-lucide="loader-2" class="w-4 h-4 animate-spin" x-show="salvando" x-cloak></i>
+                <span x-text="salvando ? 'Salvando...' : 'Salvar Alterações'"></span>
+            </button>
+        </div>
+    </form>
+
+    <!-- ================= PRINT CONTAINER ================= -->
+    <div class="hidden print:block print:w-full print:bg-white text-gray-800 font-sans" aria-hidden="true">
+        
+        <!-- HEADER -->
+        <div class="mb-8 text-center border-b-2 border-primary/20 pb-6 mt-4">
+            <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 overflow-hidden border-2 border-primary/20">
+                {% if session.get('user_logo_url') %}
+                <img src="{{ session.get('user_logo_url') }}" class="w-full h-full object-contain" alt="Logo">
+                {% else %}
+                <div class="w-full h-full bg-primary text-white flex items-center justify-center">
+                    <i data-lucide="graduation-cap" class="w-8 h-8"></i>
+                </div>
+                {% endif %}
+            </div>
+            <h2 class="text-2xl font-black text-primary uppercase tracking-widest">{{ session.get('user_nome', 'Profissional') }}</h2>
+            <h3 class="text-lg font-bold text-gray-500 mt-1 uppercase tracking-widest">Avaliação Clínica</h3>
+        </div>
+
+        <!-- DADOS PACIENTE E PERÍODO -->
+        <div class="flex justify-between items-end mb-8 pb-4 border-b border-gray-100">
+            <div>
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Paciente</p>
+                <p class="text-xl font-black text-gray-800">{{ aluno.nome }}</p>
+            </div>
+            <div class="text-right">
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Período de Avaliação</p>
+                <p class="text-base font-bold text-gray-800">
+                    <span x-text="dataInicio ? dataInicio.split('-').reverse().join('/') : '—'"></span> a 
+                    <span x-text="dataFim ? dataFim.split('-').reverse().join('/') : '—'"></span>
+                </p>
+            </div>
+        </div>
+
+        <!-- GLOBALS -->
+        <div class="mb-8 space-y-6">
+            <div x-show="instrumentos">
+                <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Instrumentos Utilizados</h4>
+                <p class="text-base font-medium text-gray-800" x-text="instrumentos"></p>
+            </div>
+            <div class="grid grid-cols-2 gap-6">
+                <div x-show="pontosFortes">
+                    <h4 class="text-sm font-bold text-green-600 uppercase tracking-widest mb-2 flex items-center gap-1"><i data-lucide="trending-up" class="w-4 h-4"></i> Pontos Fortes</h4>
+                    <p class="whitespace-pre-wrap text-sm font-medium leading-relaxed text-gray-700" x-text="pontosFortes"></p>
+                </div>
+                <div x-show="pontosAtencao">
+                    <h4 class="text-sm font-bold text-amber-600 uppercase tracking-widest mb-2 flex items-center gap-1"><i data-lucide="alert-triangle" class="w-4 h-4"></i> Pontos de Atenção</h4>
+                    <p class="whitespace-pre-wrap text-sm font-medium leading-relaxed text-gray-700" x-text="pontosAtencao"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONTEÚDO LIVRE -->
+        <div x-show="modo === 'livre'">
+            <h4 class="text-lg font-bold text-primary border-b border-primaryLight pb-2 mb-4">Relatório Global</h4>
+            <p class="whitespace-pre-wrap text-base font-medium leading-relaxed text-gray-700 text-justify" x-text="conteudoLivre"></p>
+        </div>
+
+        <!-- CONTEÚDO ÁREAS -->
+        <div x-show="modo === 'areas'" class="space-y-8">
+            <template x-for="(a, i) in areas" :key="i">
+                <div style="page-break-inside: avoid;">
+                    <h4 class="text-lg font-bold text-primary border-l-4 border-primary pl-3 mb-3 bg-primaryLight/10 py-1" x-text="a.area"></h4>
+                    <p class="whitespace-pre-wrap text-base font-medium leading-relaxed text-gray-700 pl-4 text-justify" x-text="a.observacao"></p>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+
+<script>
+const _preAreas = {{ (pre_areas or (avaliacao.areas if avaliacao and avaliacao.areas else [])) | tojson }};
+const _conteudoLivre = {{ (avaliacao.conteudo if avaliacao and avaliacao.conteudo else '') | tojson }};
+const _obs = {{ (avaliacao.observacoes if avaliacao and avaliacao.observacoes else '') | tojson }};
+const _inst = {{ (avaliacao.instrumentos_utilizados if avaliacao and avaliacao.instrumentos_utilizados else '') | tojson }};
+const _pFortes = {{ (avaliacao.pontos_fortes if avaliacao and avaliacao.pontos_fortes else '') | tojson }};
+const _pAtencao = {{ (avaliacao.pontos_atencao if avaliacao and avaliacao.pontos_atencao else '') | tojson }};
+const _dataIni = '{{ avaliacao.data_inicio if avaliacao and avaliacao.data_inicio else '' }}';
+const _dataFim = '{{ avaliacao.data_fim if avaliacao and avaliacao.data_fim else '' }}';
+const _statusAtual = '{{ avaliacao.status if avaliacao else 'em_andamento' }}';
+const _avaliacaoId = '{{ avaliacao.id if avaliacao else '' }}';
+
+function avaliacaoApp() {
+    let initModo = null;
+    if (_preAreas && _preAreas.length > 0) initModo = 'areas';
+    else if (_conteudoLivre && _conteudoLivre.trim() !== '') initModo = 'livre';
+
+    return {
+        modo: initModo,
+        salvando: false,
+        status: _statusAtual,
+        avaliacaoId: _avaliacaoId,
+        syncTexto: '',
+        
+        dataInicio: _dataIni || new Date().toISOString().split('T')[0],
+        dataFim: _dataFim,
+        
+        instrumentos: _inst,
+        pontosFortes: _pFortes,
+        pontosAtencao: _pAtencao,
+        observacoes: _obs,
+        
+        areas: JSON.parse(JSON.stringify(_preAreas || [])),
+        conteudoLivre: _conteudoLivre,
+
+        setModo(m) { this.modo = m; },
+        addArea() { this.areas.push({ area: '', observacao: '' }); },
+        removeArea(index) {
+            if (confirm('Remover esta área?')) {
+                this.areas.splice(index, 1);
+            }
+        },
+        moveArea(index, dir) {
+            if (index + dir >= 0 && index + dir < this.areas.length) {
+                const item = this.areas.splice(index, 1)[0];
+                this.areas.splice(index + dir, 0, item);
+            }
+        },
+        concluir() {
+            if (confirm('Confirmar conclusão da avaliação?')) {
+                this.status = 'concluida';
+                if (!this.dataFim) {
+                    this.dataFim = new Date().toISOString().split('T')[0];
+                }
+                this.salvar();
+            }
+        },
+        async salvar() {
+            if (this.salvando) return;
+            this.salvando = true;
+            this.syncTexto = 'Sincronizando...';
+            
+            const fd = new FormData();
+            if (this.avaliacaoId) {
+                fd.append('avaliacao_id', this.avaliacaoId);
+            }
+            fd.append('data_inicio', this.dataInicio || '');
+            fd.append('data_fim', this.dataFim || '');
+            fd.append('status', this.status);
+            fd.append('instrumentos_utilizados', this.instrumentos || '');
+            fd.append('pontos_fortes', this.pontosFortes || '');
+            fd.append('pontos_atencao', this.pontosAtencao || '');
+            fd.append('observacoes', this.observacoes || '');
+            
+            if (this.modo === 'areas') {
+                fd.append('areas_json', JSON.stringify(this.areas));
+                fd.append('conteudo', '');
+            } else if (this.modo === 'livre') {
+                fd.append('areas_json', '[]');
+                fd.append('conteudo', this.conteudoLivre || '');
+            } else {
+                fd.append('areas_json', '[]');
+                fd.append('conteudo', '');
+            }
+            
+            try {
+                const res = await fetch("{{ url_for('clinico.salvar_avaliacao_route', aluno_id=aluno.id) }}", {
+                    method: 'POST',
+                    body: fd,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    if (data.avaliacao_id) this.avaliacaoId = data.avaliacao_id;
+                    this.syncTexto = 'Salvo em ' + new Date().toLocaleTimeString().slice(0,5);
+                } else {
+                    this.syncTexto = 'Erro: ' + (data.erro || 'falha ao salvar');
+                    console.error('Erro ao salvar avaliação:', data.erro);
+                }
+            } catch (e) {
+                console.error(e);
+                this.syncTexto = 'Erro de conexão';
+            } finally {
+                this.salvando = false;
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

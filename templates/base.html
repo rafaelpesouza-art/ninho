@@ -60,13 +60,16 @@
         
         /* Safe area handling for mobile devices (like iPhones) */
         .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+        /* Alpine.js: hide elements with x-cloak until Alpine initializes */
+        [x-cloak] { display: none !important; }
     </style>
 </head>
 
-<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col md:flex-row" x-data="{ sidebarOpen: false }">
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col md:flex-row print:block print:min-h-0 print:h-auto" x-data="{ sidebarOpen: false }">
 
     <!-- Mobile Top Header -->
-    <header class="md:hidden bg-primary text-white p-4 flex items-center justify-between shadow-md z-30 relative">
+    <header class="md:hidden bg-primary text-white p-4 flex items-center justify-between shadow-md z-30 relative print:hidden">
         <div class="flex items-center gap-2">
             {% if session.get('user_logo_url') %}
             <img src="{{ session.user_logo_url }}" class="w-6 h-6 object-contain rounded" alt="Logo">
@@ -95,7 +98,7 @@
 
     <!-- Sidebar Container -->
     <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'" 
-           class="fixed md:static inset-y-0 left-0 w-64 bg-sidebar border-r border-gray-100 shadow-2xl md:shadow-none z-50 transform md:transform-none transition-transform duration-300 ease-in-out flex flex-col no-scrollbar overflow-y-auto">
+           class="fixed md:static inset-y-0 left-0 w-64 bg-sidebar border-r border-gray-100 shadow-2xl md:shadow-none z-50 transform md:transform-none transition-transform duration-300 ease-in-out flex flex-col no-scrollbar overflow-y-auto print:hidden">
         
         <!-- Desktop Logo / Header -->
         <div class="hidden md:flex items-center justify-center py-8 border-b border-gray-100 mb-4 sticky top-0 bg-sidebar z-10">
@@ -131,7 +134,7 @@
 
             <a href="{{ url_for('alunos.lista') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all {% if active_module == 'alunos' %}text-primary font-bold bg-primaryLight shadow-sm{% else %}text-gray-600 hover:text-primary hover:bg-primaryLight/50 font-semibold group{% endif %}">
                 <i data-lucide="users" class="w-5 h-5 {% if active_module != 'alunos' %}text-gray-400 group-hover:text-primary transition-colors{% endif %}"></i>
-                <span>Alunos</span>
+                <span>Pacientes</span>
             </a>
             
             <a href="{{ url_for('agenda.index') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all {% if active_module == 'agenda' %}text-primary font-bold bg-primaryLight shadow-sm{% else %}text-gray-600 hover:text-primary hover:bg-primaryLight/50 font-semibold group{% endif %}">
@@ -139,11 +142,6 @@
                 <span>Agenda</span>
             </a>
             
-<a href="{{ url_for('planejamento.index') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all {% if active_module == 'planejamento' %}text-primary font-bold bg-primaryLight shadow-sm{% else %}text-gray-600 hover:text-primary hover:bg-primaryLight/50 font-semibold group{% endif %}">
-                <i data-lucide="book-open" class="w-5 h-5 {% if active_module != 'planejamento' %}text-gray-400 group-hover:text-primary transition-colors{% endif %}"></i>
-                <span>Planejamento</span>
-            </a>
-
             <a href="{{ url_for('financeiro.index') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all {% if active_module == 'financeiro' %}text-primary font-bold bg-primaryLight shadow-sm{% else %}text-gray-600 hover:text-primary hover:bg-primaryLight/50 font-semibold group{% endif %}">
                 <i data-lucide="wallet" class="w-5 h-5 {% if active_module != 'financeiro' %}text-gray-400 group-hover:text-primary transition-colors{% endif %}"></i>
                 <span>Financeiro</span>
@@ -152,6 +150,11 @@
             <a href="{{ url_for('comunicacao.index') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all {% if active_module == 'comunicacao' %}text-primary font-bold bg-primaryLight shadow-sm{% else %}text-gray-600 hover:text-primary hover:bg-primaryLight/50 font-semibold group{% endif %}">
                 <i data-lucide="message-circle" class="w-5 h-5 {% if active_module != 'comunicacao' %}text-gray-400 group-hover:text-primary transition-colors{% endif %}"></i>
                 <span>Comunicação</span>
+            </a>
+
+            <a href="{{ url_for('configuracoes.templates') }}" class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all {% if active_module == 'configuracoes' %}text-primary font-bold bg-primaryLight shadow-sm{% else %}text-gray-600 hover:text-primary hover:bg-primaryLight/50 font-semibold group{% endif %}">
+                <i data-lucide="settings" class="w-5 h-5 {% if active_module != 'configuracoes' %}text-gray-400 group-hover:text-primary transition-colors{% endif %}"></i>
+                <span>Configurações</span>
             </a>
         </nav>
 
@@ -178,7 +181,7 @@
     </aside>
 
     <!-- Main Content Area -->
-    <main class="flex-1 flex flex-col h-screen overflow-y-auto pb-20 md:pb-0 relative scroll-smooth">
+    <main class="flex-1 flex flex-col h-screen overflow-y-auto pb-20 md:pb-0 relative scroll-smooth print:block print:overflow-visible print:h-auto print:pb-0 print:bg-white text-gray-800">
         <!-- Content wrapper -->
         <div class="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto w-full flex-1">
             
@@ -207,7 +210,7 @@
                     <i data-lucide="sparkles" class="w-10 h-10 text-primary"></i>
                 </div>
                 <h2 class="text-2xl font-bold text-gray-800 mb-2">Bem-vindo ao NinhoTutor!</h2>
-                <p class="text-gray-500 max-w-md">Selecione uma opção no menu para gerenciar seus alunos, visualizar sua agenda e muito mais.</p>
+                <p class="text-gray-500 max-w-md">Selecione uma opção no menu para gerenciar seus pacientes, visualizar sua agenda e muito mais.</p>
             </div>
             {% endblock %}
         </div>
@@ -236,10 +239,10 @@
                 {% if active_module == 'alunos' %}
                 <div class="absolute top-1 w-1 h-1 bg-primary rounded-full"></div>
                 <i data-lucide="users" class="w-6 h-6 mt-1"></i>
-                <span class="text-[10px] font-bold">Alunos</span>
+                <span class="text-[10px] font-bold">Pacientes</span>
                 {% else %}
                 <i data-lucide="users" class="w-6 h-6"></i>
-                <span class="text-[10px] font-semibold">Alunos</span>
+                <span class="text-[10px] font-semibold">Pacientes</span>
                 {% endif %}
             </a>
             

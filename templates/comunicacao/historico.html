@@ -11,7 +11,7 @@
             <h1 class="text-xl font-black text-gray-800 leading-none">
                 Histórico{% if aluno_sel %} — {{ aluno_sel.nome }}{% endif %}
             </h1>
-            <p class="text-gray-500 text-sm font-semibold mt-0.5">{{ lista | length }} registro(s)</p>
+            <p class="text-gray-500 text-sm font-semibold mt-0.5">{{ lista | selectattr('tipo', 'ne', 'devolutiva') | list | length }} relatório(s)</p>
         </div>
     </div>
 </div>
@@ -42,6 +42,7 @@
     {% if lista %}
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-50 overflow-hidden">
         {% for item in lista %}
+        {% if item.tipo != 'devolutiva' %}
         <a href="{{ url_for('comunicacao.ver_pdf', comm_id=item.id) if item.tipo == 'relatorio' else url_for('comunicacao.ver', comm_id=item.id) }}"
            class="flex items-center gap-4 p-4 hover:bg-gray-50 transition-colors group">
 
@@ -55,7 +56,7 @@
                     {{ item.titulo }}
                 </p>
                 <p class="text-xs text-gray-400 mt-0.5 flex items-center gap-2">
-                    <span>{{ (item.alunos or {}).get('nome', '—') }}</span>
+                    <span>{{ (item.pacientes or {}).get('nome', '—') }}</span>
                     {% if item.periodo_inicio %}
                     <span>·</span>
                     <span>{{ item.periodo_inicio | replace('-', '/') }}
@@ -78,6 +79,7 @@
                 <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 group-hover:text-primary transition-colors"></i>
             </div>
         </a>
+        {% endif %}
         {% endfor %}
     </div>
 

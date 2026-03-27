@@ -9,7 +9,7 @@
     <div>
         <h1 class="text-xl font-black text-gray-800 leading-none">{{ comm.titulo }}</h1>
         <p class="text-gray-500 text-sm font-semibold mt-0.5">
-            {{ (comm.alunos or {}).get('nome', '—') }} ·
+            {{ (comm.pacientes or {}).get('nome', '—') }} ·
             {{ comm.periodo_inicio | replace('-', '/') if comm.periodo_inicio else '' }}
             {% if comm.periodo_fim and comm.periodo_fim != comm.periodo_inicio %}
             → {{ comm.periodo_fim | replace('-', '/') }}
@@ -90,7 +90,7 @@
                     </span>
                     <h2 class="text-2xl font-black mt-1 leading-tight">{{ comm.titulo }}</h2>
                     <p class="text-white/80 font-semibold mt-1 text-sm">
-                        {{ (comm.alunos or {}).get('nome', '—') }}
+                        {{ (comm.pacientes or {}).get('nome', '—') }}
                     </p>
                 </div>
                 {% if comm.periodo_inicio %}
@@ -110,6 +110,16 @@
         {% if comm.tipo == 'relatorio' %}
         <!-- Relatório: seções estruturadas -->
         <div class="divide-y divide-gray-100">
+
+            {% if comm.resumo %}
+            <div class="px-8 py-6">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-8 h-8 bg-blue-100 rounded-xl flex items-center justify-center text-lg">📝</div>
+                    <h3 class="font-black text-gray-800 text-base">Resumo do Período</h3>
+                </div>
+                <p class="text-gray-700 leading-relaxed text-sm whitespace-pre-line">{{ comm.resumo }}</p>
+            </div>
+            {% endif %}
 
             {% if comm.objetivos_met %}
             <div class="px-8 py-6">

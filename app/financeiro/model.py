@@ -59,7 +59,7 @@ def calcular_fechamento(sb, professor_id: str, mes: int, ano: int) -> list:
 
     res = (
         sb.table("aulas")
-        .select("id, data_hora, duracao_min, aluno_id, alunos(id, nome, valor_aula, familia_id, responsavel)")
+        .select("id, data_hora, duracao_min, aluno_id, alunos(id, nome, valor_aula, fase_atual, familia_id, responsavel)")
         .eq("professor_id", professor_id)
         .eq("status", "realizada")
         .gte("data_hora", inicio)
@@ -86,6 +86,7 @@ def calcular_fechamento(sb, professor_id: str, mes: int, ano: int) -> list:
                 "total":          0.0,
                 "sem_valor":      False,
                 "fatura_existente": None,
+                "fases_count":    {},  # {"avaliacao": 2, "intervencao": 3, ...}
             }
 
         if aula["aluno_id"] not in grupos[key]["aluno_ids"]:
@@ -99,6 +100,8 @@ def calcular_fechamento(sb, professor_id: str, mes: int, ano: int) -> list:
             grupos[key]["sem_valor"] = True
         grupos[key]["aulas"].append(aula)
         grupos[key]["total"] = round(grupos[key]["total"] + valor, 2)
+        fase = aluno.get("fase_atual") or "outro"
+        grupos[key]["fases_count"][fase] = grupos[key]["fases_count"].get(fase, 0) + 1
 
     # Busca faturas já geradas para o mês
     mes_ref = date(ano, mes, 1).isoformat()
@@ -108,27 +111,59 @@ def calcular_fechamento(sb, professor_id: str, mes: int, ano: int) -> list:
             .select("id, aluno_id, familia_id, status, valor")
             .eq("professor_id", professor_id)
             .eq("mes_referencia", mes_ref)
+            .neq("status", "cancelada")
             .execute()
         )
         fat_data = fat_res.data or []
     except Exception:
         fat_data = []
 
-    fat_por_aluno  = {f["aluno_id"]: f for f in fat_data}
-    fat_por_familia = {f["familia_id"]: f for f in fat_data if f.get("familia_id")}
+    fat_por_aluno: dict = {}
+    fat_por_familia: dict = {}
+    for f in fat_data:
+        if f.get("familia_id"):
+            fat_por_familia.setdefault(f["familia_id"], []).append(f)
+        fat_por_aluno.setdefault(f["aluno_id"], []).append(f)
 
     for key, grupo in grupos.items():
-        fatura = None
+        faturas: list = []
         if grupo["familia_id"] and grupo["familia_id"] in fat_por_familia:
-            fatura = fat_por_familia[grupo["familia_id"]]
+            faturas = fat_por_familia[grupo["familia_id"]]
         else:
             for aid in grupo["aluno_ids"]:
                 if aid in fat_por_aluno:
-                    fatura = fat_por_aluno[aid]
+                    faturas = fat_por_aluno[aid]
                     break
-        grupo["fatura_existente"] = fatura
+        total_faturado = round(sum(float(f.get("valor") or 0) for f in faturas), 2)
+        grupo["faturas_existentes"] = faturas
+        grupo["fatura_existente"]   = faturas[0] if faturas else None
+        grupo["total_faturado"]     = total_faturado
+        grupo["pendente"]           = max(0.0, round(grupo["total"] - total_faturado, 2))
 
     return sorted(grupos.values(), key=lambda g: g["nomes"][0] if g["nomes"] else "")
+
+
+_FASE_LABEL = {"avaliacao": "avaliação", "intervencao": "intervenção"}
+
+
+def _descricao_fatura(grupo: dict, mes: int, ano: int) -> str:
+    """Gera descrição da fatura usando 'sessões'; detalha tipo se fases distintas."""
+    nomes_str = " & ".join(grupo["nomes"])
+    n = len(grupo["aulas"])
+    fases = grupo.get("fases_count", {})
+    fases_cli = {k: v for k, v in fases.items() if k in _FASE_LABEL}
+
+    if len(fases_cli) > 1:
+        partes = [f"{v} {_FASE_LABEL[k]}" for k, v in fases_cli.items()]
+        outros = n - sum(fases_cli.values())
+        if outros > 0:
+            partes.append(f"{outros} {'sessão' if outros == 1 else 'sessões'}")
+        return f"Sessões de {MESES_PT[mes]}/{ano} — {nomes_str} ({' + '.join(partes)})"
+
+    fase_unica = next(iter(fases_cli), None)
+    label_extra = f" de {_FASE_LABEL[fase_unica]}" if fase_unica else ""
+    s = "sessão" if n == 1 else "sessões"
+    return f"Sessões{label_extra} de {MESES_PT[mes]}/{ano} — {nomes_str} ({n} {s})"
 
 
 def gerar_faturas(sb, professor_id: str, mes: int, ano: int) -> tuple:
@@ -148,20 +183,24 @@ def gerar_faturas(sb, professor_id: str, mes: int, ano: int) -> tuple:
     criadas, ignoradas = 0, 0
 
     for grupo in grupos:
-        if grupo["fatura_existente"] or not grupo["aulas"] or grupo["total"] <= 0:
+        pendente = grupo.get("pendente", grupo["total"])
+        if not grupo["aulas"] or pendente <= 0:
             ignoradas += 1
             continue
 
         nomes_str = " & ".join(grupo["nomes"])
-        n = len(grupo["aulas"])
+        eh_complemento = bool(grupo.get("faturas_existentes"))
+        descricao = _descricao_fatura(grupo, mes, ano)
+        if eh_complemento:
+            descricao += " — Complemento"
 
         payload = {
             "professor_id":    professor_id,
             "aluno_id":        grupo["aluno_ids"][0],
             "familia_id":      grupo["familia_id"],
             "mes_referencia":  mes_ref,
-            "descricao":       f"Aulas de {MESES_PT[mes]}/{ano} — {nomes_str} ({n} {'aula' if n == 1 else 'aulas'})",
-            "valor":           grupo["total"],
+            "descricao":       descricao,
+            "valor":           pendente,
             "valor_pago":      0,
             "data_emissao":    date.today().isoformat(),
             "data_vencimento": data_venc.isoformat(),
@@ -193,10 +232,15 @@ def gerar_fatura_grupo(sb, professor_id: str, mes: int, ano: int,
 
     if not grupo:
         raise ValueError("Grupo não encontrado no fechamento do mês.")
-    if grupo["fatura_existente"]:
-        raise ValueError("Já existe uma fatura para este grupo neste mês.")
     if not grupo["aulas"] or grupo["total"] <= 0:
         raise ValueError("Grupo sem aulas ou sem valor definido.")
+    pendente = grupo.get("pendente", grupo["total"])
+    if pendente <= 0:
+        raise ValueError("Não há valor pendente para este grupo neste mês.")
+    eh_complemento = bool(grupo.get("faturas_existentes"))
+    descricao = _descricao_fatura(grupo, mes, ano)
+    if eh_complemento:
+        descricao += " — Complemento"
 
     config   = buscar_config(sb, professor_id)
     dia_venc = max(1, min(28, int(config.get("dia_vencimento") or 10)))
@@ -207,7 +251,6 @@ def gerar_fatura_grupo(sb, professor_id: str, mes: int, ano: int,
         data_venc = date(ano, mes + 1, min(dia_venc, _cal.monthrange(ano, mes + 1)[1]))
 
     nomes_str = " & ".join(grupo["nomes"])
-    n         = len(grupo["aulas"])
     mes_ref   = date(ano, mes, 1).isoformat()
 
     payload = {
@@ -215,8 +258,8 @@ def gerar_fatura_grupo(sb, professor_id: str, mes: int, ano: int,
         "aluno_id":        grupo["aluno_ids"][0],
         "familia_id":      grupo["familia_id"],
         "mes_referencia":  mes_ref,
-        "descricao":       f"Aulas de {MESES_PT[mes]}/{ano} — {nomes_str} ({n} {'aula' if n == 1 else 'aulas'})",
-        "valor":           grupo["total"],
+        "descricao":       descricao,
+        "valor":           pendente,
         "valor_pago":      0,
         "data_emissao":    date.today().isoformat(),
         "data_vencimento": data_venc.isoformat(),
@@ -438,7 +481,7 @@ def buscar_aulas_fatura(sb, professor_id: str, fatura: dict) -> list:
     for aid in aluno_ids:
         res = (
             sb.table("aulas")
-            .select("id, data_hora, duracao_min, alunos(id, nome, valor_aula)")
+            .select("id, data_hora, duracao_min, alunos(id, nome, valor_aula, fase_atual)")
             .eq("professor_id", professor_id)
             .eq("aluno_id", aid)
             .eq("status", "realizada")

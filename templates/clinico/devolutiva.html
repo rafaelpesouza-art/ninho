@@ -1,0 +1,483 @@
+{% extends "base.html" %}
+{% block title %}Devolutiva – {{ aluno.nome }}{% endblock %}
+{% set active_module = 'alunos' %}
+
+{% block page_header %}
+<div class="flex items-center justify-between mb-2 print:hidden">
+    <div class="flex items-center gap-3">
+        <a href="{{ url_for('alunos.ficha', aluno_id=aluno.id, tab='clinico') }}"
+           class="p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50">
+           <i data-lucide="arrow-left" class="w-6 h-6"></i>
+        </a>
+        <div>
+            <p class="text-xs text-gray-500 font-semibold">{{ aluno.nome }}</p>
+            <h1 class="text-2xl font-bold text-gray-800 tracking-tight">Devolutiva</h1>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto pb-24 md:pb-6 space-y-6" x-data="devolutivaApp()">
+
+    <!-- Status de envio Dinâmico (Sempre visível se já existe) -->
+    <div class="grid grid-cols-2 gap-4 print:hidden" x-show="id">
+        <div class="bg-white rounded-2xl border p-4 flex flex-col items-center sm:flex-row gap-3 touch-manipulation transition-colors"
+            @click="toggleEnviado('familia')"
+            :class="enviado_familia ? 'border-green-200 bg-green-50/50 cursor-pointer hover:bg-green-100' : 'border-gray-100 bg-white cursor-pointer hover:bg-gray-50'">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                 :class="enviado_familia ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400'">
+                 <i data-lucide="check" class="w-5 h-5" x-show="enviado_familia"></i>
+                 <i data-lucide="users" class="w-5 h-5" x-show="!enviado_familia"></i>
+            </div>
+            <div class="flex-1 text-center sm:text-left w-full mt-2 sm:mt-0">
+                <p class="text-xs sm:text-sm font-bold text-gray-800">Família</p>
+                <p class="text-[10px] sm:text-xs" :class="enviado_familia ? 'text-green-700' : 'text-gray-400'" x-text="enviado_familia ? 'Enviada' : 'NÃO Enviada'"></p>
+            </div>
+            <div class="mt-2 sm:mt-0 text-[10px] uppercase font-bold text-gray-400 text-center" x-show="!enviado_familia">Tocar p/ Marcar</div>
+        </div>
+        
+        <div class="bg-white rounded-2xl border p-4 flex flex-col items-center sm:flex-row gap-3 touch-manipulation transition-colors"
+            @click="toggleEnviado('escola')"
+            :class="enviado_escola ? 'border-green-200 bg-green-50/50 cursor-pointer hover:bg-green-100' : 'border-gray-100 bg-white cursor-pointer hover:bg-gray-50'">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                 :class="enviado_escola ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400'">
+                 <i data-lucide="check" class="w-5 h-5" x-show="enviado_escola"></i>
+                 <i data-lucide="school" class="w-5 h-5" x-show="!enviado_escola"></i>
+            </div>
+            <div class="flex-1 text-center sm:text-left w-full mt-2 sm:mt-0">
+                <p class="text-xs sm:text-sm font-bold text-gray-800">Escola</p>
+                <p class="text-[10px] sm:text-xs" :class="enviado_escola ? 'text-green-700' : 'text-gray-400'" x-text="enviado_escola ? 'Enviada' : 'NÃO Enviada'"></p>
+            </div>
+            <div class="mt-2 sm:mt-0 text-[10px] uppercase font-bold text-gray-400 text-center" x-show="!enviado_escola">Tocar p/ Marcar</div>
+        </div>
+    </div>
+
+    <!-- MAIN FORM -->
+    <form @submit.prevent="salvar" class="space-y-6 print:hidden" enctype="multipart/form-data">
+        <div class="flex items-center justify-between bg-white rounded-2xl shadow-sm border border-gray-100 px-6 py-4">
+            <div class="flex flex-col">
+                <span class="text-sm font-bold text-gray-800">Status</span>
+                <span class="text-xs text-gray-500" x-text="syncTexto || (id ? 'Edição' : 'Novo rascunho')"></span>
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="button" @click="showPdfModal = true"
+                        class="px-4 py-2.5 bg-white text-gray-700 font-bold rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 shadow-sm touch-manipulation">
+                    <i data-lucide="file-down" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">Gerar Relatório Integrado</span>
+                    <span class="sm:hidden">Exportar PDF</span>
+                </button>
+                <button type="submit" :disabled="salvando"
+                        class="px-5 py-2.5 bg-primary text-white font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center gap-2 shadow-sm disabled:opacity-50 touch-manipulation">
+                    <i data-lucide="save" class="w-4 h-4" x-show="!salvando"></i>
+                    <i data-lucide="loader-2" class="w-4 h-4 animate-spin" x-show="salvando" x-cloak></i>
+                    <span x-text="salvando ? 'Salvando...' : 'Salvar'"></span>
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="bg-primaryLight/30 px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+                <i data-lucide="file-text" class="w-5 h-5 text-primary"></i>
+                <h3 class="font-bold text-gray-800">Relatório da Devolutiva</h3>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1.5">Data de Entrega</label>
+                        <input type="date" x-model="dataEntrega"
+                               class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 text-base bg-gray-50 focus:bg-white touch-manipulation">
+                    </div>
+                    {% if avaliacoes %}
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1.5">Avaliação Base</label>
+                        <select x-model="avaliacaoId"
+                                class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 text-base bg-gray-50 focus:bg-white">
+                            <option value="">— Nenhuma / Independente —</option>
+                            {% for av in avaliacoes %}
+                            <option value="{{ av.id }}">{{ av.data_inicio[:7] if av.data_inicio else '?' }} ({{ 'Andamento' if av.status == 'em_andamento' else 'Concluída' }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-1.5">Conteúdo do Relatório</label>
+                    <textarea x-model="conteudo" rows="10" placeholder="Texto síntese do processo, conclusões e observações detalhadas..."
+                              class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 text-base bg-gray-50 focus:bg-white resize-y placeholder-gray-400 touch-manipulation"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Encaminhamentos e Recomendações em Abas (Alpine) -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden" x-data="{ tab: 'familia' }">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h3 class="font-bold text-gray-800 flex items-center gap-2">
+                    <i data-lucide="arrow-right-circle" class="w-5 h-5 text-primary"></i> Desdobramentos e Recomendações
+                </h3>
+            </div>
+            <!-- Abas (Touch-friendly) -->
+            <div class="flex border-b border-gray-100">
+                <button type="button" @click="tab = 'familia'"
+                        class="flex-1 py-3 text-sm font-bold text-center border-b-2 transition-colors touch-manipulation"
+                        :class="tab === 'familia' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'">
+                    Família & Clínico
+                </button>
+                <button type="button" @click="tab = 'escola'"
+                        class="flex-1 py-3 text-sm font-bold text-center border-b-2 transition-colors touch-manipulation"
+                        :class="tab === 'escola' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'">
+                    Escola
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <!-- Aba Familia -->
+                <div x-show="tab === 'familia'" x-cloak class="space-y-4" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1.5">Encaminhamentos Clínicos</label>
+                        <textarea x-model="encaminhamentos" rows="3" placeholder="Ex: Avaliação com Neurologista, Fonoaudiólogo..."
+                                  class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 text-base bg-gray-50 focus:bg-white resize-y touch-manipulation"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1.5">Recomendações para a Família</label>
+                        <textarea x-model="rc_familia" rows="4" placeholder="Orientações e adaptações em casa..."
+                                  class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 text-base bg-gray-50 focus:bg-white resize-y touch-manipulation"></textarea>
+                    </div>
+                </div>
+                <!-- Aba Escola -->
+                <div x-show="tab === 'escola'" x-cloak class="space-y-4" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 translate-y-2">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-1.5">Recomendações para a Escola</label>
+                        <textarea x-model="rc_escola" rows="5" placeholder="Adaptações curriculares, suporte em sala, PEC..."
+                                  class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/20 text-base bg-gray-50 focus:bg-white resize-y touch-manipulation"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Anexo PDF Formulario nativo ou ajax multipart -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+                <i data-lucide="paperclip" class="w-5 h-5 text-gray-400"></i>
+                <h3 class="font-bold text-gray-800">Cópia do Documento Assinado (Opcional)</h3>
+            </div>
+            <div class="p-6">
+                <input type="file" @change="handleFile" accept=".pdf,.png,.jpg,.jpeg"
+                       class="w-full px-4 py-3 rounded-xl border border-dashed border-gray-300 text-sm bg-gray-50 file:mr-3 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-gray-200 file:text-gray-700 hover:file:bg-gray-300 cursor-pointer touch-manipulation">
+                <p class="text-xs text-gray-400 mt-2">Se você escaneou ou gerou PDF deste relatório, anexe-o aqui juntamente para que fique na ficha.</p>
+                <!-- Display filename if we had one from DB, though currently we only handle uploads and this might belong properly to Documentos -->
+        </div>
+
+    </form>
+
+    <!-- Modal Exportar PDF -->
+    <div :class="showPdfModal ? 'flex' : 'hidden'" style="z-index: 9999;" class="fixed inset-0 items-center justify-center bg-gray-900/60 print:hidden" @click="showPdfModal = false">
+        <div class="bg-white mx-4 max-w-sm w-full rounded-2xl p-6 shadow-2xl relative" @click.stop>
+            <button type="button" @click.prevent="showPdfModal = false" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            <h3 class="text-xl font-bold text-gray-800 mb-2">Relatório Global (PDF)</h3>
+            <p class="text-sm text-gray-500 mb-6 font-medium">Selecione o que deseja incluir neste PDF.</p>
+            
+            <div class="space-y-4 mb-8">
+                <label class="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-100 transition-colors">
+                    <input type="checkbox" x-model="pdfDevolutiva" class="w-5 h-5 text-primary rounded border-gray-300 focus:ring-primary">
+                    <span class="text-sm font-bold text-gray-700">1. Síntese Final da Devolutiva</span>
+                </label>
+                <label class="flex items-center gap-3 p-2 rounded-lg transition-colors border border-transparent" :class="!anamneseData.id ? 'opacity-50 cursor-not-allowed bg-gray-50/50' : 'cursor-pointer hover:bg-gray-50 hover:border-gray-100'">
+                    <input type="checkbox" x-model="pdfAnamnese" :disabled="!anamneseData.id" class="w-5 h-5 text-primary rounded border-gray-300 focus:ring-primary disabled:opacity-50">
+                    <span class="text-sm font-bold text-gray-700">2. Anamnese Completa</span>
+                    <span x-show="!anamneseData.id" class="text-[10px] uppercase font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full ml-auto">Não Feita</span>
+                </label>
+                <label class="flex items-center gap-3 p-2 rounded-lg transition-colors border border-transparent" :class="!avaliacaoSelecionada ? 'opacity-50 cursor-not-allowed bg-gray-50/50' : 'cursor-pointer hover:bg-gray-50 hover:border-gray-100'">
+                    <input type="checkbox" x-model="pdfAvaliacao" :disabled="!avaliacaoSelecionada" class="w-5 h-5 text-primary rounded border-gray-300 focus:ring-primary disabled:opacity-50">
+                    <span class="text-sm font-bold text-gray-700 w-1/2 leading-tight">3. Avaliação Base da Devolutiva</span>
+                    <span x-show="!avaliacaoSelecionada" class="text-[10px] uppercase font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full ml-auto">Não Escolhida</span>
+                </label>
+                <label class="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-100 transition-colors">
+                    <input type="checkbox" x-model="pdfRecomendacoes" class="w-5 h-5 text-primary rounded border-gray-300 focus:ring-primary">
+                    <span class="text-sm font-bold text-gray-700">4. Desdobramentos/Recomendações</span>
+                </label>
+            </div>
+            
+            <button type="button" @click.prevent="showPdfModal = false; $nextTick(() => gerarPdf())"
+                    class="w-full py-3 bg-primary text-white font-bold rounded-xl hover:opacity-90 flex items-center justify-center gap-2 shadow-sm touch-manipulation">
+                <i data-lucide="printer" class="w-5 h-5"></i> Abrir PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- ================= PRINT CONTAINER ================= -->
+    <style>
+        #devolutiva-print-container {
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            width: 210mm;
+        }
+        @media print {
+            #devolutiva-print-container {
+                position: static !important;
+                left: auto !important;
+                width: 100% !important;
+                display: block !important;
+                background: white !important;
+            }
+        }
+    </style>
+    <div id="devolutiva-print-container" class="text-gray-800 font-sans">
+        <!-- HEADER OFICIAL DA CLINICA -->
+        <div class="mb-8 text-center border-b-2 border-primary/20 pb-6 mt-4">
+            <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 overflow-hidden border-2 border-primary/20">
+                {% if session.get('user_logo_url') %}
+                <img src="{{ session.get('user_logo_url') }}" class="w-full h-full object-contain" alt="Logo">
+                {% else %}
+                <div class="w-full h-full bg-primary text-white flex items-center justify-center">
+                    <i data-lucide="graduation-cap" class="w-8 h-8"></i>
+                </div>
+                {% endif %}
+            </div>
+            <h2 class="text-2xl font-black text-primary uppercase tracking-widest">{{ session.get('user_nome', 'Profissional') }}</h2>
+            <h3 class="text-lg font-bold text-gray-500 mt-1 uppercase tracking-widest">Relatório Clínico Integrado</h3>
+        </div>
+
+        <!-- DADOS PACIENTE E PERÍODO -->
+        <div class="flex justify-between items-end mb-8 pb-4 border-b border-gray-100 avoid-page-break">
+            <div>
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Paciente</p>
+                <p class="text-xl font-black text-gray-800">{{ aluno.nome }}</p>
+            </div>
+            <div class="text-right">
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Data de Emissão</p>
+                <p class="text-base font-bold text-gray-800" x-text="dataEntrega ? dataEntrega.split('-').reverse().join('/') : '—'"></p>
+            </div>
+        </div>
+
+        <div class="space-y-12 mb-16">
+            <!-- SESSÃO: DEVOLUTIVA -->
+            <div x-show="pdfDevolutiva" class="avoid-page-break">
+                <h4 class="text-lg font-bold text-primary border-b border-primaryLight pb-2 mb-4">Síntese do Relatório</h4>
+                <p class="whitespace-pre-wrap text-base font-medium leading-relaxed text-gray-700 text-justify" x-text="conteudo"></p>
+            </div>
+
+            <!-- SESSÃO: ANAMNESE -->
+            <div x-show="pdfAnamnese" class="mt-8">
+                <h3 class="text-xl font-black text-white bg-primary py-2 px-4 rounded-lg mb-6 shadow-sm">I. Anamnese</h3>
+                <!-- Se for estruturado -->
+                <template x-if="anamneseData.secoes && anamneseData.secoes.length > 0">
+                    <div class="space-y-6">
+                        <template x-for="(s, idx) in anamneseData.secoes" :key="idx">
+                            <div class="avoid-page-break">
+                                <h4 class="text-base font-bold text-gray-800 border-l-4 border-primary pl-3 mb-2 bg-primaryLight/10 py-1" x-text="s.titulo"></h4>
+                                <p class="whitespace-pre-wrap text-base font-medium leading-relaxed text-gray-700 pl-4 text-justify" x-text="s.texto"></p>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+                <!-- Se for livre -->
+                <template x-if="(!anamneseData.secoes || anamneseData.secoes.length === 0) && anamneseData.conteudo">
+                    <div class="avoid-page-break">
+                        <p class="whitespace-pre-wrap text-base font-medium leading-relaxed text-gray-700 text-justify" x-text="anamneseData.conteudo"></p>
+                    </div>
+                </template>
+            </div>
+
+            <!-- SESSÃO: AVALIAÇÃO -->
+            <div x-show="pdfAvaliacao" class="mt-8">
+                <h3 class="text-xl font-black text-white bg-primary py-2 px-4 rounded-lg mb-6 shadow-sm">II. Avaliação Clínica Base</h3>
+                
+                <div class="mb-6 space-y-6 avoid-page-break">
+                    <div x-show="avaliacaoSelecionada && avaliacaoSelecionada.instrumentos_utilizados">
+                        <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Instrumentos Utilizados</h4>
+                        <p class="text-base font-medium text-gray-800" x-text="avaliacaoSelecionada ? avaliacaoSelecionada.instrumentos_utilizados : ''"></p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-6">
+                        <div x-show="avaliacaoSelecionada && avaliacaoSelecionada.pontos_fortes">
+                            <h4 class="text-sm font-bold text-green-600 uppercase tracking-widest mb-2 flex items-center gap-1"><i data-lucide="trending-up" class="w-4 h-4"></i> Pontos Fortes</h4>
+                            <p class="whitespace-pre-wrap text-sm font-medium leading-relaxed text-gray-700" x-text="avaliacaoSelecionada ? avaliacaoSelecionada.pontos_fortes : ''"></p>
+                        </div>
+                        <div x-show="avaliacaoSelecionada && avaliacaoSelecionada.pontos_atencao">
+                            <h4 class="text-sm font-bold text-amber-600 uppercase tracking-widest mb-2 flex items-center gap-1"><i data-lucide="alert-triangle" class="w-4 h-4"></i> Pontos de Atenção</h4>
+                            <p class="whitespace-pre-wrap text-sm font-medium leading-relaxed text-gray-700" x-text="avaliacaoSelecionada ? avaliacaoSelecionada.pontos_atencao : ''"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Domínios/Areas -->
+                <div class="space-y-6">
+                    <template x-if="avaliacaoSelecionada && avaliacaoSelecionada.areas && avaliacaoSelecionada.areas.length > 0">
+                        <div class="space-y-6">
+                            <template x-for="(a, idx) in avaliacaoSelecionada.areas" :key="idx">
+                                <div class="avoid-page-break">
+                                    <h4 class="text-base font-bold text-gray-800 border-l-4 border-primary pl-3 mb-2 bg-primaryLight/10 py-1" x-text="a.area"></h4>
+                                    <p class="whitespace-pre-wrap text-base font-medium leading-relaxed text-gray-700 pl-4 text-justify" x-text="a.observacao"></p>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    <template x-if="avaliacaoSelecionada && (!avaliacaoSelecionada.areas || avaliacaoSelecionada.areas.length === 0) && avaliacaoSelecionada.conteudo">
+                        <div class="avoid-page-break">
+                            <h4 class="text-base font-bold text-primary border-b border-primaryLight pb-2 mb-3">Relatório Global da Avaliação</h4>
+                            <p class="whitespace-pre-wrap text-base font-medium leading-relaxed text-gray-700 text-justify" x-text="avaliacaoSelecionada.conteudo"></p>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- SESSÃO: RECOMENDAÇÕES -->
+            <div x-show="pdfRecomendacoes" class="mt-8">
+                <h3 class="text-xl font-black text-white bg-primary py-2 px-4 rounded-lg mb-6 shadow-sm">III. Recomendações Profissionais</h3>
+                <div class="space-y-6 border-2 border-gray-100 rounded-2xl p-6 bg-white">
+                    <div x-show="encaminhamentos" class="avoid-page-break">
+                        <h4 class="text-base font-bold text-gray-800 border-l-4 border-amber-500 pl-3 mb-2 bg-amber-50 py-1">Encaminhamentos Clínicos</h4>
+                        <p class="whitespace-pre-wrap text-base font-medium leading-relaxed text-gray-700 pl-4 text-justify" x-text="encaminhamentos"></p>
+                    </div>
+                    <div x-show="rc_familia" class="avoid-page-break">
+                        <h4 class="text-base font-bold text-gray-800 border-l-4 border-blue-500 pl-3 mb-2 bg-blue-50 py-1">Desdobramentos Familiares</h4>
+                        <p class="whitespace-pre-wrap text-base font-medium leading-relaxed text-gray-700 pl-4 text-justify" x-text="rc_familia"></p>
+                    </div>
+                    <div x-show="rc_escola" class="avoid-page-break">
+                        <h4 class="text-base font-bold text-gray-800 border-l-4 border-green-500 pl-3 mb-2 bg-green-50 py-1">Desdobramentos Escolares</h4>
+                        <p class="whitespace-pre-wrap text-base font-medium leading-relaxed text-gray-700 pl-4 text-justify" x-text="rc_escola"></p>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+
+<script>
+const _devoObj = {{ (devolutiva if devolutiva else {}) | tojson }};
+const _anamneseData = {{ (anamnese if anamnese else {}) | tojson }};
+const _avaliacoesData = {{ (avaliacoes if avaliacoes else []) | tojson }};
+
+function devolutivaApp() {
+    return {
+        id: _devoObj.id || '',
+        salvando: false,
+        syncTexto: '',
+        showPdfModal: false,
+        
+        pdfDevolutiva: true,
+        pdfAnamnese: false,
+        pdfAvaliacao: true,
+        pdfRecomendacoes: true,
+        
+        anamneseData: _anamneseData,
+        avaliacoesData: _avaliacoesData,
+        
+        // Data
+        dataEntrega: _devoObj.data_entrega || new Date().toISOString().split('T')[0],
+        avaliacaoId: _devoObj.avaliacao_id || '',
+        conteudo: _devoObj.conteudo || '',
+        encaminhamentos: _devoObj.encaminhamentos || '',
+        rc_familia: _devoObj.recomendacoes_familia || '',
+        rc_escola: _devoObj.recomendacoes_escola || '',
+        
+        enviado_familia: _devoObj.enviado_familia === true,
+        enviado_escola: _devoObj.enviado_escola === true,
+        fileUpload: null,
+
+        get avaliacaoSelecionada() {
+            if (!this.avaliacaoId || !this.avaliacoesData.length) return null;
+            return this.avaliacoesData.find(a => String(a.id) === String(this.avaliacaoId)) || null;
+        },
+
+        gerarPdf() {
+            const container = document.getElementById('devolutiva-print-container');
+            if (!container) { alert('Erro interno: container não encontrado.'); return; }
+            const primary = '{{ session.get("user_cor_primaria", "#7F77DD") }}';
+            const nome = '{{ session.get("user_nome", "Profissional") | e }}';
+            const win = window.open('', '_blank', 'width=900,height=700');
+            if (!win) { alert('Permita popups neste site para gerar o PDF.'); return; }
+            win.document.write(`<!DOCTYPE html><html lang="pt-BR"><head>
+<meta charset="UTF-8">
+<title>Relatório - {{ aluno.nome | e }}</title>
+<script src="https://cdn.tailwindcss.com"><\/script>
+<script>tailwind.config={theme:{extend:{colors:{primary:'${primary}',primaryLight:'${primary}1a'},fontFamily:{sans:['Nunito','ui-sans-serif','sans-serif']}}}}<\/script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+@page{size:A4;margin:20mm 18mm 20mm 18mm;}
+body{font-family:'Nunito',sans-serif;background:white;color:#1f2937;margin:0;padding:2rem;}
+.avoid-page-break{page-break-inside:avoid;break-inside:avoid;}
+@media print{
+  body{padding:0;margin:0;}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+}
+</style>
+</head><body>
+${container.innerHTML}
+<script>window.addEventListener('load',function(){setTimeout(function(){window.print();},900);});<\/script>
+</body></html>`);
+            win.document.close();
+        },
+
+        handleFile(e) {
+            this.fileUpload = e.target.files[0];
+        },
+        
+        // Toggles local variables and sends immediate small ajax updates 
+        // using the backend's `marcar_enviada_route` normally done via form sub.
+        async toggleEnviado(quem) {
+            if (!this.id) {
+                alert("Por favor, primeiro salve o rascunho clicando em 'Salvar' abaixo antes de marcar como enviado.");
+                return;
+            }
+            // For now just local toggle, and it'll save everything together
+            // Or trigger a fetch to the specific route
+            const prev = this['enviado_' + quem];
+            this['enviado_' + quem] = !prev;
+            
+            // Background toggle sync (assuming the route acts like a toggle internally)
+            // Wait, the regular route is POST with field 'campo'. Let's fire and forget.
+            fetch(`/alunos/{{ aluno.id }}/devolutiva/${this.id}/enviada`, {
+                method: 'POST',
+                body: new URLSearchParams({ campo: 'enviado_' + quem })
+            }).catch(e => console.error(e));
+        },
+
+        async salvar() {
+            if (this.salvando) return;
+            this.salvando = true;
+            this.syncTexto = 'Sincronizando...';
+            
+            const fd = new FormData();
+            if (this.id) fd.append('devolutiva_id', this.id);
+            fd.append('data_entrega', this.dataEntrega);
+            fd.append('avaliacao_id', this.avaliacaoId);
+            fd.append('conteudo', this.conteudo || '');
+            fd.append('encaminhamentos', this.encaminhamentos || '');
+            fd.append('recomendacoes_familia', this.rc_familia || '');
+            fd.append('recomendacoes_escola', this.rc_escola || '');
+            
+            // Note: Currently backend doesn't explicitly save 'enviado_familia' inside `salvar_devolutiva_route`.
+            // The route uses form submit. We just submit file via same request in case we alter it later in Python.
+            if (this.fileUpload) {
+                fd.append('arquivo', this.fileUpload);
+            }
+
+            try {
+                const res = await fetch("{{ url_for('clinico.salvar_devolutiva_route', aluno_id=aluno.id) }}", {
+                    method: 'POST', body: fd
+                });
+                if (res.ok) {
+                    this.syncTexto = 'Salvo em ' + new Date().toLocaleTimeString().slice(0,5);
+                    // se for novo redireciona para recarregar com ID preenchido pela db
+                    if (!this.id && res.redirected) {
+                        window.location.href = res.url;
+                    }
+                } else {
+                    this.syncTexto = 'Falha ao salvar.';
+                }
+            } catch (e) {
+                console.error(e);
+                this.syncTexto = 'Erro s/ conexão';
+            } finally {
+                this.salvando = false;
+            }
+        }
+    }
+}
+</script>
+{% endblock %}
