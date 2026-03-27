@@ -261,7 +261,7 @@ def dashboard():
     try:
         r = (
             sb.table("faturas")
-            .select("mes_referencia, valor, valor_pago")
+            .select("mes_referencia, valor, valor_pago, status")
             .eq("professor_id", professor_id)
             .gte("mes_referencia", _primeiro_mes)
             .neq("status", "cancelada")
@@ -274,7 +274,12 @@ def dashboard():
             if k not in _por_mes:
                 _por_mes[k] = [0.0, 0.0]
             _por_mes[k][0] += float(f.get("valor") or 0)
-            _por_mes[k][1] += float(f.get("valor_pago") or 0)
+            # Para faturas pagas sem valor_pago preenchido, usa valor como fallback
+            if f.get("status") in ("paga", "parcial"):
+                recebido = float(f.get("valor_pago") or f.get("valor") or 0)
+            else:
+                recebido = float(f.get("valor_pago") or 0)
+            _por_mes[k][1] += recebido
     except Exception:
         _por_mes = {}
 
