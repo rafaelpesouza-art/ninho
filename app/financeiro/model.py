@@ -31,12 +31,16 @@ def buscar_config(sb, professor_id: str) -> dict:
 def salvar_config(sb, professor_id: str, dados: dict) -> None:
     dia_venc = _parse_int(dados.get("dia_vencimento")) or 10
     dia_venc = max(1, min(28, dia_venc))
+    modelo = dados.get("modelo_cobranca", "pos_pago")
+    if modelo not in ("pos_pago", "pre_pago"):
+        modelo = "pos_pago"
     payload = {
-        "professor_id":  professor_id,
-        "nome_recebedor": dados.get("nome_recebedor") or None,
-        "chave_pix":      dados.get("chave_pix") or None,
-        "dia_vencimento": dia_venc,
-        "observacoes":    dados.get("observacoes") or None,
+        "professor_id":    professor_id,
+        "nome_recebedor":  dados.get("nome_recebedor") or None,
+        "chave_pix":       dados.get("chave_pix") or None,
+        "dia_vencimento":  dia_venc,
+        "observacoes":     dados.get("observacoes") or None,
+        "modelo_cobranca": modelo,
     }
     existing = buscar_config(sb, professor_id)
     if existing:
@@ -49,19 +53,20 @@ def salvar_config(sb, professor_id: str, dados: dict) -> None:
 # FECHAMENTO MENSAL
 # ---------------------------------------------------------------------------
 
-def calcular_fechamento(sb, professor_id: str, mes: int, ano: int) -> list:
+def calcular_fechamento(sb, professor_id: str, mes: int, ano: int, modo: str = "pos_pago") -> list:
     """
-    Agrupa aulas realizadas no mês por família/aluno.
-    Retorna lista de grupos com total e referência a fatura existente.
+    Agrupa aulas do mês por família/aluno.
+    modo='pos_pago': conta realizadas. modo='pre_pago': conta agendadas.
     """
     inicio = date(ano, mes, 1).isoformat()
     fim = date(ano + 1, 1, 1).isoformat() if mes == 12 else date(ano, mes + 1, 1).isoformat()
+    status_aula = "agendada" if modo == "pre_pago" else "realizada"
 
     res = (
         sb.table("aulas")
         .select("id, data_hora, duracao_min, aluno_id, alunos(id, nome, valor_aula, fase_atual, familia_id, responsavel)")
         .eq("professor_id", professor_id)
-        .eq("status", "realizada")
+        .eq("status", status_aula)
         .gte("data_hora", inicio)
         .lt("data_hora", fim)
         .order("data_hora")
@@ -146,37 +151,42 @@ def calcular_fechamento(sb, professor_id: str, mes: int, ano: int) -> list:
 _FASE_LABEL = {"avaliacao": "avaliação", "intervencao": "intervenção"}
 
 
-def _descricao_fatura(grupo: dict, mes: int, ano: int) -> str:
-    """Gera descrição da fatura usando 'sessões'; detalha tipo se fases distintas."""
+def _descricao_fatura(grupo: dict, mes: int, ano: int, modo: str = "pos_pago") -> str:
+    """Gera descrição da fatura; adapta prefixo para pré-pago."""
     nomes_str = " & ".join(grupo["nomes"])
     n = len(grupo["aulas"])
     fases = grupo.get("fases_count", {})
     fases_cli = {k: v for k, v in fases.items() if k in _FASE_LABEL}
+    prefixo = "Sessões programadas" if modo == "pre_pago" else "Sessões"
 
     if len(fases_cli) > 1:
         partes = [f"{v} {_FASE_LABEL[k]}" for k, v in fases_cli.items()]
         outros = n - sum(fases_cli.values())
         if outros > 0:
             partes.append(f"{outros} {'sessão' if outros == 1 else 'sessões'}")
-        return f"Sessões de {MESES_PT[mes]}/{ano} — {nomes_str} ({' + '.join(partes)})"
+        return f"{prefixo} de {MESES_PT[mes]}/{ano} — {nomes_str} ({' + '.join(partes)})"
 
     fase_unica = next(iter(fases_cli), None)
     label_extra = f" de {_FASE_LABEL[fase_unica]}" if fase_unica else ""
     s = "sessão" if n == 1 else "sessões"
-    return f"Sessões{label_extra} de {MESES_PT[mes]}/{ano} — {nomes_str} ({n} {s})"
+    return f"{prefixo}{label_extra} de {MESES_PT[mes]}/{ano} — {nomes_str} ({n} {s})"
 
 
 def gerar_faturas(sb, professor_id: str, mes: int, ano: int) -> tuple:
     """Gera faturas pendentes para o mês. Retorna (n_criadas, n_ignoradas)."""
-    config  = buscar_config(sb, professor_id)
+    config   = buscar_config(sb, professor_id)
+    modo     = config.get("modelo_cobranca", "pos_pago")
     dia_venc = max(1, min(28, int(config.get("dia_vencimento") or 10)))
-    grupos  = calcular_fechamento(sb, professor_id, mes, ano)
+    grupos   = calcular_fechamento(sb, professor_id, mes, ano, modo=modo)
 
-    if mes == 12:
-        max_day = _cal.monthrange(ano + 1, 1)[1]
+    if modo == "pre_pago":
+        max_day   = _cal.monthrange(ano, mes)[1]
+        data_venc = date(ano, mes, min(dia_venc, max_day))
+    elif mes == 12:
+        max_day   = _cal.monthrange(ano + 1, 1)[1]
         data_venc = date(ano + 1, 1, min(dia_venc, max_day))
     else:
-        max_day = _cal.monthrange(ano, mes + 1)[1]
+        max_day   = _cal.monthrange(ano, mes + 1)[1]
         data_venc = date(ano, mes + 1, min(dia_venc, max_day))
 
     mes_ref = date(ano, mes, 1).isoformat()
@@ -188,23 +198,25 @@ def gerar_faturas(sb, professor_id: str, mes: int, ano: int) -> tuple:
             ignoradas += 1
             continue
 
-        nomes_str = " & ".join(grupo["nomes"])
+        nomes_str      = " & ".join(grupo["nomes"])
         eh_complemento = bool(grupo.get("faturas_existentes"))
-        descricao = _descricao_fatura(grupo, mes, ano)
+        descricao      = _descricao_fatura(grupo, mes, ano, modo=modo)
         if eh_complemento:
             descricao += " — Complemento"
 
         payload = {
-            "professor_id":    professor_id,
-            "aluno_id":        grupo["aluno_ids"][0],
-            "familia_id":      grupo["familia_id"],
-            "mes_referencia":  mes_ref,
-            "descricao":       descricao,
-            "valor":           pendente,
-            "valor_pago":      0,
-            "data_emissao":    date.today().isoformat(),
-            "data_vencimento": data_venc.isoformat(),
-            "status":          "pendente",
+            "professor_id":          professor_id,
+            "aluno_id":              grupo["aluno_ids"][0],
+            "familia_id":            grupo["familia_id"],
+            "mes_referencia":        mes_ref,
+            "descricao":             descricao,
+            "valor":                 pendente,
+            "valor_pago":            0,
+            "data_emissao":          date.today().isoformat(),
+            "data_vencimento":       data_venc.isoformat(),
+            "status":                "pendente",
+            "tipo_fatura":           modo,
+            "qtd_sessoes_agendadas": len(grupo["aulas"]) if modo == "pre_pago" else None,
         }
         try:
             sb.table("faturas").insert(payload).execute()
@@ -218,7 +230,11 @@ def gerar_faturas(sb, professor_id: str, mes: int, ano: int) -> tuple:
 def gerar_fatura_grupo(sb, professor_id: str, mes: int, ano: int,
                        aluno_id: str, familia_id: str | None) -> dict:
     """Gera a fatura de um único grupo (família ou aluno individual)."""
-    grupos = calcular_fechamento(sb, professor_id, mes, ano)
+    config   = buscar_config(sb, professor_id)
+    modo     = config.get("modelo_cobranca", "pos_pago")
+    dia_venc = max(1, min(28, int(config.get("dia_vencimento") or 10)))
+
+    grupos = calcular_fechamento(sb, professor_id, mes, ano, modo=modo)
 
     # Encontra o grupo correspondente
     grupo = None
@@ -237,33 +253,34 @@ def gerar_fatura_grupo(sb, professor_id: str, mes: int, ano: int,
     pendente = grupo.get("pendente", grupo["total"])
     if pendente <= 0:
         raise ValueError("Não há valor pendente para este grupo neste mês.")
+
     eh_complemento = bool(grupo.get("faturas_existentes"))
-    descricao = _descricao_fatura(grupo, mes, ano)
+    descricao      = _descricao_fatura(grupo, mes, ano, modo=modo)
     if eh_complemento:
         descricao += " — Complemento"
 
-    config   = buscar_config(sb, professor_id)
-    dia_venc = max(1, min(28, int(config.get("dia_vencimento") or 10)))
-
-    if mes == 12:
+    if modo == "pre_pago":
+        data_venc = date(ano, mes, min(dia_venc, _cal.monthrange(ano, mes)[1]))
+    elif mes == 12:
         data_venc = date(ano + 1, 1, min(dia_venc, _cal.monthrange(ano + 1, 1)[1]))
     else:
         data_venc = date(ano, mes + 1, min(dia_venc, _cal.monthrange(ano, mes + 1)[1]))
 
-    nomes_str = " & ".join(grupo["nomes"])
-    mes_ref   = date(ano, mes, 1).isoformat()
+    mes_ref = date(ano, mes, 1).isoformat()
 
     payload = {
-        "professor_id":    professor_id,
-        "aluno_id":        grupo["aluno_ids"][0],
-        "familia_id":      grupo["familia_id"],
-        "mes_referencia":  mes_ref,
-        "descricao":       descricao,
-        "valor":           pendente,
-        "valor_pago":      0,
-        "data_emissao":    date.today().isoformat(),
-        "data_vencimento": data_venc.isoformat(),
-        "status":          "pendente",
+        "professor_id":          professor_id,
+        "aluno_id":              grupo["aluno_ids"][0],
+        "familia_id":            grupo["familia_id"],
+        "mes_referencia":        mes_ref,
+        "descricao":             descricao,
+        "valor":                 pendente,
+        "valor_pago":            0,
+        "data_emissao":          date.today().isoformat(),
+        "data_vencimento":       data_venc.isoformat(),
+        "status":                "pendente",
+        "tipo_fatura":           modo,
+        "qtd_sessoes_agendadas": len(grupo["aulas"]) if modo == "pre_pago" else None,
     }
     res = sb.table("faturas").insert(payload).execute()
     return (res.data or [{}])[0]
@@ -340,10 +357,11 @@ def editar_fatura(sb, professor_id: str, fatura_id: str, dados: dict) -> None:
         "valor_pago":       valor_pago,
         "status":           status,
         "data_vencimento":  data_venc,
-        "descricao":        dados.get("descricao") or "",
-        "observacoes":      dados.get("observacoes") or None,
-        "metodo_pagamento": dados.get("metodo_pagamento") or None,
-        "data_pagamento":   dados.get("data_pagamento") or None,
+        "descricao":         dados.get("descricao") or "",
+        "observacoes":       dados.get("observacoes") or None,
+        "observacao_ajuste": dados.get("observacao_ajuste") or None,
+        "metodo_pagamento":  dados.get("metodo_pagamento") or None,
+        "data_pagamento":    dados.get("data_pagamento") or None,
     }
 
     try:
@@ -485,6 +503,9 @@ def buscar_aulas_fatura(sb, professor_id: str, fatura: dict) -> list:
     else:
         aluno_ids = [fatura["aluno_id"]]
 
+    tipo        = fatura.get("tipo_fatura", "pos_pago")
+    status_aula = "agendada" if tipo == "pre_pago" else "realizada"
+
     all_aulas = []
     for aid in aluno_ids:
         res = (
@@ -492,7 +513,7 @@ def buscar_aulas_fatura(sb, professor_id: str, fatura: dict) -> list:
             .select("id, data_hora, duracao_min, alunos(id, nome, valor_aula, fase_atual)")
             .eq("professor_id", professor_id)
             .eq("aluno_id", aid)
-            .eq("status", "realizada")
+            .eq("status", status_aula)
             .gte("data_hora", mes_ref)
             .lt("data_hora", fim)
             .order("data_hora")
@@ -529,13 +550,16 @@ def gerar_texto_whatsapp(sb, professor_id: str, fatura: dict) -> str:
     else:
         aluno_ids = [(fatura["aluno_id"], aluno.get("nome", ""))]
 
-    # Busca aulas por aluno
+    # Busca sessões por aluno (realizadas para pós-pago, agendadas para pré-pago)
+    tipo        = fatura.get("tipo_fatura", "pos_pago")
+    status_aula = "agendada" if tipo == "pre_pago" else "realizada"
+
     aulas_por_aluno: dict = {}
     for aid, anome in aluno_ids:
         res = (
             sb.table("aulas").select("data_hora")
             .eq("professor_id", professor_id).eq("aluno_id", aid)
-            .eq("status", "realizada")
+            .eq("status", status_aula)
             .gte("data_hora", mes_ref).lt("data_hora", fim)
             .order("data_hora").execute()
         )
@@ -549,7 +573,10 @@ def gerar_texto_whatsapp(sb, professor_id: str, fatura: dict) -> str:
     responsavel = aluno.get("responsavel") or ""
     saudacao    = f"Oi, {responsavel.split()[0]}! 🌸" if responsavel else "Olá! 🌸"
 
-    linhas = [saudacao, "", f"Aqui vai a *Produção de {mes_nome}* 📚✨", ""]
+    is_pre_pago  = fatura.get("tipo_fatura") == "pre_pago"
+    prod_label   = "Programação" if is_pre_pago else "Produção"
+
+    linhas = [saudacao, "", f"Aqui vai a *{prod_label} de {mes_nome}* 📚✨", ""]
 
     if len(aluno_ids) == 1:
         _, anome = aluno_ids[0]

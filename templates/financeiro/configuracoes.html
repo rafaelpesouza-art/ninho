@@ -64,6 +64,44 @@
         
     </div>
 
+    <!-- Modelo de Cobrança -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+
+        <div class="bg-primaryLight/30 px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+            <i data-lucide="calendar-clock" class="w-5 h-5 text-primary"></i>
+            <h3 class="font-bold text-gray-800">Modelo de Cobrança</h3>
+        </div>
+
+        <div class="p-6 space-y-4">
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-3">Como você fatura seus pacientes?</label>
+                <div class="space-y-3">
+                    <label class="flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors
+                        {% if not config.modelo_cobranca or config.modelo_cobranca == 'pos_pago' %}border-primary bg-primaryLight/20{% else %}border-gray-200 hover:border-gray-300{% endif %}">
+                        <input type="radio" name="modelo_cobranca" value="pos_pago"
+                               {% if not config.modelo_cobranca or config.modelo_cobranca == 'pos_pago' %}checked{% endif %}
+                               class="mt-0.5 accent-primary shrink-0">
+                        <div>
+                            <p class="font-bold text-gray-800">Pós-pago — cobrar no final do mês</p>
+                            <p class="text-sm text-gray-500 mt-0.5">A fatura é gerada após o mês fechar, contando as sessões <strong>realizadas</strong>.</p>
+                        </div>
+                    </label>
+                    <label class="flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors
+                        {% if config.modelo_cobranca == 'pre_pago' %}border-primary bg-primaryLight/20{% else %}border-gray-200 hover:border-gray-300{% endif %}">
+                        <input type="radio" name="modelo_cobranca" value="pre_pago"
+                               {% if config.modelo_cobranca == 'pre_pago' %}checked{% endif %}
+                               class="mt-0.5 accent-primary shrink-0">
+                        <div>
+                            <p class="font-bold text-gray-800">Pré-pago — cobrar no início do mês</p>
+                            <p class="text-sm text-gray-500 mt-0.5">A fatura é gerada antecipadamente, com base nas sessões <strong>agendadas</strong>. Ajustes por cancelamento ficam a seu critério.</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
     <!-- Botão Fixo Mobile / Normal Desktop -->
     <div class="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] md:static md:bg-transparent md:border-none md:shadow-none md:p-0 z-20 flex justify-end">
         <button type="submit"

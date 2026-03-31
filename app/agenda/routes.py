@@ -47,15 +47,20 @@ def index():
     except (ValueError, TypeError):
         ano, mes = hoje.year, hoje.month
 
-    # Dia selecionado para o painel lateral — padrão: hoje
-    data_sel_str = request.args.get("data", "") or hoje.isoformat()
+    # Dia selecionado para o painel lateral
+    data_sel_str = request.args.get("data", "")
+    if not data_sel_str and "ano" not in request.args and "mes" not in request.args:
+        data_sel_str = hoje.isoformat()
+        
     data_selecionada = None
     aulas_dia = []
-    try:
-        data_selecionada = date.fromisoformat(data_sel_str)
-        aulas_dia = listar_aulas_dia(sb, professor_id, data_selecionada)
-    except ValueError:
-        pass
+    
+    if data_sel_str:
+        try:
+            data_selecionada = date.fromisoformat(data_sel_str)
+            aulas_dia = listar_aulas_dia(sb, professor_id, data_selecionada)
+        except ValueError:
+            pass
 
     # Dados do mês
     aulas_mes = listar_aulas_mes(sb, professor_id, ano, mes)

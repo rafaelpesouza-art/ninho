@@ -99,7 +99,9 @@ def fechamento():
     mes = int(request.args.get("mes", mes_def))
     ano = int(request.args.get("ano", ano_def))
 
-    grupos = calcular_fechamento(sb, professor_id, mes, ano)
+    config = buscar_config(sb, professor_id)
+    modo   = config.get("modelo_cobranca", "pos_pago")
+    grupos = calcular_fechamento(sb, professor_id, mes, ano, modo=modo)
 
     n_novos     = sum(1 for g in grupos if g.get("pendente", 0) > 0)
     total_geral = sum(g.get("pendente", 0) for g in grupos)
@@ -115,6 +117,7 @@ def fechamento():
         mes_ant=mes_ant, mes_prox=mes_prox,
         n_novos=n_novos,
         total_geral=total_geral,
+        config=config,
         fmt_valor=fmt_valor,
     )
 

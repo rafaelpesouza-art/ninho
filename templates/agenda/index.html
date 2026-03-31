@@ -19,50 +19,7 @@
     'remarcada':           'bg-yellow-400',
 } %}
 
-{% block page_header %}
-<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
-    <div>
-        <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 tracking-tight">Agenda</h1>
-        <div class="flex items-center gap-3 mt-1 text-gray-500">
-            {% if data_selecionada %}
-            <span class="font-bold">{{ data_selecionada.strftime('%d/%m/%Y') }}</span>
-            <div class="flex items-center gap-1 bg-white rounded-lg shadow-sm border border-gray-100 p-0.5">
-                {% set dia_ant = data_selecionada - timedelta(days=1) %}
-                {% set dia_prox = data_selecionada + timedelta(days=1) %}
-                <a href="{{ url_for('agenda.index', data=dia_ant.isoformat()) }}" class="p-1 hover:bg-gray-100 rounded-md transition-colors" title="Dia anterior"><i data-lucide="chevron-left" class="w-4 h-4"></i></a>
-                <a href="{{ url_for('agenda.index', data=hoje.isoformat()) }}" class="px-2 py-1 text-xs font-bold hover:bg-gray-100 rounded-md transition-colors">Hoje</a>
-                <a href="{{ url_for('agenda.index', data=dia_prox.isoformat()) }}" class="p-1 hover:bg-gray-100 rounded-md transition-colors" title="Próximo dia"><i data-lucide="chevron-right" class="w-4 h-4"></i></a>
-            </div>
-            {% else %}
-            <span>{{ nomes_meses[mes] }} {{ ano }}</span>
-            <div class="flex items-center gap-1 bg-white rounded-lg shadow-sm border border-gray-100 p-0.5">
-                <a href="{{ url_for('agenda.index', ano=anterior[0], mes=anterior[1]) }}" class="p-1 hover:bg-gray-100 rounded-md transition-colors" title="Mês anterior"><i data-lucide="chevron-left" class="w-4 h-4"></i></a>
-                <a href="{{ url_for('agenda.index', ano=hoje.year, mes=hoje.month) }}" class="px-2 py-1 text-xs font-bold hover:bg-gray-100 rounded-md transition-colors">Mês Atual</a>
-                <a href="{{ url_for('agenda.index', ano=proximo[0], mes=proximo[1]) }}" class="p-1 hover:bg-gray-100 rounded-md transition-colors" title="Próximo mês"><i data-lucide="chevron-right" class="w-4 h-4"></i></a>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-    
-    <div class="flex flex-wrap gap-2">
-        <form method="POST" action="{{ url_for('agenda.gerar_mes') }}" class="hidden sm:block">
-            <input type="hidden" name="ano" value="{{ ano }}"><input type="hidden" name="mes" value="{{ mes }}">
-            <button type="submit" class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all text-sm shadow-sm focus:ring-2 focus:ring-primary/50">
-                <i data-lucide="refresh-cw" class="w-4 h-4 text-primary"></i> Gerar Aulas Fixas
-            </button>
-        </form>
-        <a href="{{ url_for('agenda.feriados') }}" class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all text-sm shadow-sm">
-            <i data-lucide="sun" class="w-4 h-4 text-yellow-500"></i> <span class="hidden sm:inline">Feriados</span>
-        </a>
-        <a href="{{ url_for('agenda.lembretes') }}" class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all text-sm shadow-sm">
-            <i data-lucide="bell" class="w-4 h-4 text-purple-500"></i> <span class="hidden sm:inline">Lembretes</span>
-        </a>
-        <button @click="$dispatch('open-nova-aula')" class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primaryHover transition-all text-sm shadow-sm focus:ring-2 focus:ring-primary/50">
-            <i data-lucide="plus" class="w-4 h-4"></i> Nova Aula
-        </button>
-    </div>
-</div>
-{% endblock %}
+
 
 {% block content %}
 <div x-data="{
@@ -72,6 +29,65 @@
     abrirCancelar(aula) { this.aulaAtiva = aula; this.cancelarOpen = true; },
     abrirReagendar(aula) { this.aulaAtiva = aula; this.reagendarOpen = true; }
 }" class="pb-24 md:pb-6">
+
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 tracking-tight">Agenda</h1>
+            
+            <!-- Navbar Header depending on Current Tab -->
+            <div class="flex items-center gap-3 mt-1 text-gray-500">
+                
+                <!-- Day / Week Nav -->
+                <div x-show="currentTab === 'dia' || currentTab === 'semana'" class="flex items-center gap-3">
+                    {% if data_selecionada %}
+                    <span class="font-bold">{{ data_selecionada.strftime('%d/%m/%Y') }}</span>
+                    <div class="flex items-center gap-1 bg-white rounded-lg shadow-sm border border-gray-100 p-0.5">
+                        {% set dia_ant = data_selecionada - timedelta(days=1) %}
+                        {% set dia_prox = data_selecionada + timedelta(days=1) %}
+                        <a href="{{ url_for('agenda.index', data=dia_ant.isoformat()) }}" class="p-1 hover:bg-gray-100 rounded-md transition-colors" title="Dia anterior"><i data-lucide="chevron-left" class="w-4 h-4"></i></a>
+                        <a href="{{ url_for('agenda.index', data=hoje.isoformat()) }}" class="px-2 py-1 text-xs font-bold hover:bg-gray-100 rounded-md transition-colors">Hoje</a>
+                        <a href="{{ url_for('agenda.index', data=dia_prox.isoformat()) }}" class="p-1 hover:bg-gray-100 rounded-md transition-colors" title="Próximo dia"><i data-lucide="chevron-right" class="w-4 h-4"></i></a>
+                    </div>
+                    {% else %}
+                    <!-- Se não tiver data selecionada, e o dia for a tab ativa (cenário improvável baseando no route atual), mostramos algo genérico -->
+                    <span class="font-bold">{{ hoje.strftime('%d/%m/%Y') }}</span>
+                    <div class="flex items-center gap-1 bg-white rounded-lg shadow-sm border border-gray-100 p-0.5">
+                        <a href="{{ url_for('agenda.index', data=hoje.isoformat()) }}" class="px-2 py-1 text-xs font-bold hover:bg-gray-100 rounded-md transition-colors">Ir para Hoje</a>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Month Nav -->
+                <div x-show="currentTab === 'mes'" class="flex items-center gap-3" x-cloak>
+                    <span class="font-bold">{{ nomes_meses[mes] }} {{ ano }}</span>
+                    <div class="flex items-center gap-1 bg-white rounded-lg shadow-sm border border-gray-100 p-0.5">
+                        <a href="{{ url_for('agenda.index', ano=anterior[0], mes=anterior[1]) }}" class="p-1 hover:bg-gray-100 rounded-md transition-colors" title="Mês anterior"><i data-lucide="chevron-left" class="w-4 h-4"></i></a>
+                        <a href="{{ url_for('agenda.index', ano=hoje.year, mes=hoje.month) }}" class="px-2 py-1 text-xs font-bold hover:bg-gray-100 rounded-md transition-colors">Mês Atual</a>
+                        <a href="{{ url_for('agenda.index', ano=proximo[0], mes=proximo[1]) }}" class="p-1 hover:bg-gray-100 rounded-md transition-colors" title="Próximo mês"><i data-lucide="chevron-right" class="w-4 h-4"></i></a>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+        
+        <div class="flex flex-wrap gap-2">
+            <form method="POST" action="{{ url_for('agenda.gerar_mes') }}" class="hidden sm:block">
+                <input type="hidden" name="ano" value="{{ ano }}"><input type="hidden" name="mes" value="{{ mes }}">
+                <button type="submit" class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all text-sm shadow-sm focus:ring-2 focus:ring-primary/50">
+                    <i data-lucide="refresh-cw" class="w-4 h-4 text-primary"></i> Gerar Aulas Fixas
+                </button>
+            </form>
+            <a href="{{ url_for('agenda.feriados') }}" class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all text-sm shadow-sm">
+                <i data-lucide="sun" class="w-4 h-4 text-yellow-500"></i> <span class="hidden sm:inline">Feriados</span>
+            </a>
+            <a href="{{ url_for('agenda.lembretes') }}" class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all text-sm shadow-sm">
+                <i data-lucide="bell" class="w-4 h-4 text-purple-500"></i> <span class="hidden sm:inline">Lembretes</span>
+            </a>
+            <button @click="$dispatch('open-nova-aula')" class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primaryHover transition-all text-sm shadow-sm focus:ring-2 focus:ring-primary/50">
+                <i data-lucide="plus" class="w-4 h-4"></i> Nova Aula
+            </button>
+        </div>
+    </div>
 
     <!-- Tabs Navigation -->
     <div class="flex overflow-x-auto no-scrollbar bg-white rounded-2xl shadow-sm border border-gray-100 mb-6 p-1.5 gap-1">
@@ -335,7 +351,7 @@
                 </div>
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-1.5">Data e Horário</label>
-                    <input type="text" x-flatpickr="{enableTime: true, dateFormat: 'Y-m-d\\TH:i'}" name="data_hora" required value="{{ data_selecionada.isoformat() + 'T08:00' if data_selecionada else '' }}" class="w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/50 text-base bg-white">
+                    <input type="text" x-flatpickr="{enableTime: true, dateFormat: 'Y-m-d\\TH:i'}" name="data_hora" required value="{{ (data_selecionada.isoformat() if data_selecionada else '%04d-%02d-%02d'|format(ano, mes, hoje.day if ano == hoje.year and mes == hoje.month else 1)) + 'T08:00' }}" class="w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/50 text-base bg-white">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
