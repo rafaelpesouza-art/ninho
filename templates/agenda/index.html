@@ -74,7 +74,7 @@
             <form method="POST" action="{{ url_for('agenda.gerar_mes') }}" class="hidden sm:block">
                 <input type="hidden" name="ano" value="{{ ano }}"><input type="hidden" name="mes" value="{{ mes }}">
                 <button type="submit" class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all text-sm shadow-sm focus:ring-2 focus:ring-primary/50">
-                    <i data-lucide="refresh-cw" class="w-4 h-4 text-primary"></i> Gerar Aulas Fixas
+                    <i data-lucide="refresh-cw" class="w-4 h-4 text-primary"></i> Gerar Sessões Fixas
                 </button>
             </form>
             <a href="{{ url_for('agenda.feriados') }}" class="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-all text-sm shadow-sm">
