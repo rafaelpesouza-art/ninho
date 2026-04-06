@@ -571,12 +571,12 @@ def gerar_texto_whatsapp(sb, professor_id: str, fatura: dict) -> str:
     valor_fmt      = fmt_valor(fatura["valor"])
 
     responsavel = aluno.get("responsavel") or ""
-    saudacao    = f"Oi, {responsavel.split()[0]}! 🌸" if responsavel else "Olá! 🌸"
+    saudacao    = f"Oi, {responsavel.split()[0]}!" if responsavel else "Olá!"
 
     is_pre_pago  = fatura.get("tipo_fatura") == "pre_pago"
     prod_label   = "Programação" if is_pre_pago else "Produção"
 
-    linhas = [saudacao, "", f"Aqui vai a *{prod_label} de {mes_nome}* 📚✨", ""]
+    linhas = [saudacao, "", f"Aqui vai a *{prod_label} de {mes_nome}*", ""]
 
     if len(aluno_ids) == 1:
         _, anome = aluno_ids[0]
@@ -595,17 +595,17 @@ def gerar_texto_whatsapp(sb, professor_id: str, fatura: dict) -> str:
                 if dt:
                     linhas.append(f"  • {dt.day:02d}/{dt.month:02d} ({DIAS_PT[dt.weekday()]})")
 
-    linhas += ["", f"*Total: {valor_fmt}* 💜", ""]
+    linhas += ["", f"*Total: {valor_fmt}*", ""]
 
     if chave_pix:
-        linhas += [f"Pagamento via Pix 💳", f"`{chave_pix}`", f"Recebedor: {nome_recebedor}"]
+        linhas += [f"Pagamento via Pix", f"`{chave_pix}`", f"Recebedor: {nome_recebedor}"]
     else:
         linhas += [f"Recebedor: {nome_recebedor}"]
 
     if obs_extra:
         linhas += ["", obs_extra]
 
-    linhas += ["", "Qualquer dúvida é só falar! Um beijo 🥰"]
+    linhas += ["", "Qualquer dúvida é só falar! Um abraço."]
     return "\n".join(linhas)
 
 
