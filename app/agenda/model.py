@@ -179,6 +179,17 @@ def marcar_realizada(sb, professor_id: str, aula_id: str) -> dict | None:
     return res.data[0] if res.data else None
 
 
+def deletar_aula(sb, professor_id: str, aula_id: str) -> list:
+    res = (
+        sb.table("aulas")
+        .delete()
+        .eq("professor_id", professor_id)
+        .eq("id", aula_id)
+        .execute()
+    )
+    return res.data or []
+
+
 # ---------------------------------------------------------------------------
 # FERIADOS
 # ---------------------------------------------------------------------------

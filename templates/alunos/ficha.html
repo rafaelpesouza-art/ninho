@@ -69,7 +69,7 @@
         <a href="{{ url_for('comunicacao.relatorio') }}?aluno_id={{ aluno.id }}"
            class="flex-1 md:flex-none px-4 py-2 text-sm font-bold text-center rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 transition-all shadow-sm flex items-center justify-center gap-2">
            <i data-lucide="file-bar-chart" class="w-4 h-4"></i>
-           Relatório
+           Gerar novo relatório
         </a>
         <a href="{{ url_for('alunos.editar', aluno_id=aluno.id) }}"
            class="flex-1 md:flex-none px-4 py-2 text-sm font-bold text-center rounded-xl bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50 flex items-center justify-center gap-2">
@@ -81,7 +81,12 @@
 {% endblock %}
 
 {% block content %}
-<div class="pb-24 md:pb-6 space-y-8">
+<div x-data="{
+    cancelarOpen: false, reagendarOpen: false, excluirOpen: false, aulaAtiva: null,
+    abrirCancelar(aula) { this.aulaAtiva = aula; this.cancelarOpen = true; },
+    abrirReagendar(aula) { this.aulaAtiva = aula; this.reagendarOpen = true; },
+    abrirExcluir(aula) { this.aulaAtiva = aula; this.excluirOpen = true; }
+}" class="pb-24 md:pb-6 space-y-8">
     
     <!-- Cards Grid (5 Cards) -->
     {% set c = clinico %}
@@ -287,6 +292,29 @@
                                    class="text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1 touch-manipulation">
                                     <i data-lucide="plus" class="w-3.5 h-3.5"></i> Registrar
                                 </a>
+                                {% elif a.status == 'agendada' %}
+                                <form method="POST" action="{{ url_for('agenda.realizada', aula_id=a.id) }}" class="inline">
+                                    <button type="submit" class="text-white bg-green-500 hover:bg-green-600 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1 touch-manipulation">
+                                        <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Realizada
+                                    </button>
+                                </form>
+                                <button @click="abrirReagendar({ id: '{{ a.id }}', nome: '{{ aluno.nome }}', hora: '{{ a.data_hora[:16] }}' })"
+                                        class="text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1 touch-manipulation">
+                                    <i data-lucide="calendar-sync" class="w-3.5 h-3.5"></i> Reagendar
+                                </button>
+                                <button @click="abrirCancelar({ id: '{{ a.id }}', nome: '{{ aluno.nome }}', hora: '{{ a.data_hora[11:16] }}' })"
+                                        class="text-red-500 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1 touch-manipulation">
+                                    <i data-lucide="x-circle" class="w-3.5 h-3.5"></i> Cancelar
+                                </button>
+                                <button @click="abrirExcluir({ id: '{{ a.id }}', nome: '{{ aluno.nome }}', hora: '{{ a.data_hora[11:16] }}' })"
+                                        class="text-gray-500 bg-gray-50 hover:bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1 touch-manipulation" title="Excluir Completamente">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                </button>
+                                {% elif 'cancelada' in a.status %}
+                                <button @click="abrirExcluir({ id: '{{ a.id }}', nome: '{{ aluno.nome }}', hora: '{{ a.data_hora[11:16] }}' })"
+                                        class="text-gray-500 bg-gray-50 hover:bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors inline-flex items-center gap-1 touch-manipulation">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Excluir
+                                </button>
                                 {% endif %}
                             </div>
                         </div>
@@ -318,6 +346,113 @@
             {% endif %}
         </div>
     </div>
-    
+
+    <!-- Relatórios Enviados -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+            <div class="flex items-center gap-2">
+                <i data-lucide="file-text" class="w-5 h-5 text-gray-400"></i>
+                <h3 class="font-bold text-gray-700 text-lg">Relatórios Enviados</h3>
+            </div>
+            <a href="{{ url_for('comunicacao.relatorio', aluno_id=aluno.id) }}"
+               class="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Novo Relatório
+            </a>
+        </div>
+
+        {% if relatorios %}
+        <div class="divide-y divide-gray-50">
+            {% for r in relatorios %}
+            <a href="{{ url_for('comunicacao.ver', comm_id=r.id) }}"
+               class="flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors group">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0
+                        {% if r.tipo == 'devolutiva' %}bg-purple-50 text-purple-500{% else %}bg-blue-50 text-blue-500{% endif %}">
+                        <i data-lucide="{% if r.tipo == 'devolutiva' %}clipboard-list{% else %}file-text{% endif %}" class="w-4 h-4"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <p class="font-bold text-gray-800 text-sm truncate">{{ r.titulo or 'Relatório' }}</p>
+                        <p class="text-xs text-gray-400 mt-0.5">
+                            {% if r.periodo_inicio and r.periodo_fim %}
+                                {{ r.periodo_inicio[8:10] }}/{{ r.periodo_inicio[5:7] }} a {{ r.periodo_fim[8:10] }}/{{ r.periodo_fim[5:7] }}/{{ r.periodo_fim[:4] }}
+                            {% elif r.criado_em %}
+                                {{ r.criado_em[:10].split('-')|reverse|join('/') }}
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0 ml-4">
+                    <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full
+                        {% if r.tipo == 'devolutiva' %}bg-purple-50 text-purple-600{% else %}bg-blue-50 text-blue-600{% endif %}">
+                        {{ 'Devolutiva' if r.tipo == 'devolutiva' else 'Relatório' }}
+                    </span>
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors"></i>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="py-10 text-center flex flex-col items-center justify-center">
+            <i data-lucide="file-text" class="w-10 h-10 text-gray-300 mb-3"></i>
+            <h4 class="text-base font-bold text-gray-800 mb-1">Nenhum relatório ainda</h4>
+            <p class="text-gray-500 text-sm max-w-sm">Os relatórios enviados para a família aparecerão aqui.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Modais de Cancelar e Reagendar -->
+    <div x-cloak x-show="cancelarOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm" x-transition.opacity>
+        <div class="bg-white rounded-2xl w-full max-w-sm p-6 relative" @click.away="cancelarOpen = false">
+            <h3 class="font-bold text-xl mb-4 text-red-600 flex items-center gap-2"><i data-lucide="alert-triangle"></i> Cancelar Aula</h3>
+            <template x-if="aulaAtiva">
+                <form method="POST" :action="`/agenda/aula/${aulaAtiva.id}/cancelar`" class="space-y-4">
+                    <p class="text-sm">Cancelar aula de <strong x-text="aulaAtiva.nome"></strong>?</p>
+                    <select name="tipo" class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-primary/50">
+                        <option value="cancelada_professor">Prof. Cancelou</option>
+                        <option value="cancelada_aluno">Paciente Cancelou</option>
+                    </select>
+                    <input type="text" name="motivo" placeholder="Motivo (opcional)" class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-primary/50">
+                    <div class="flex gap-2 pt-2">
+                        <button type="button" @click="cancelarOpen = false" class="flex-1 py-3 border border-gray-200 rounded-xl font-bold hover:bg-gray-50">Voltar</button>
+                        <button type="submit" class="flex-1 py-3 bg-red-500 text-white rounded-xl font-bold shadow-md shadow-red-500/30 hover:bg-red-600">Confirmar</button>
+                    </div>
+                </form>
+            </template>
+        </div>
+    </div>
+
+    <div x-cloak x-show="reagendarOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm" x-transition.opacity>
+        <div class="bg-white rounded-2xl w-full max-w-sm p-6 relative" @click.away="reagendarOpen = false">
+            <h3 class="font-bold text-xl mb-4 text-blue-600 flex items-center gap-2"><i data-lucide="calendar-sync"></i> Reagendar</h3>
+            <template x-if="aulaAtiva">
+                <form method="POST" :action="`/agenda/aula/${aulaAtiva.id}/reagendar`" class="space-y-4">
+                    <p class="text-sm">Remarcar aula de <strong x-text="aulaAtiva.nome"></strong></p>
+                    <input type="text" x-flatpickr="{enableTime: true, dateFormat: 'Y-m-d\\TH:i'}" name="nova_data_hora" required :value="aulaAtiva.hora" class="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:ring-2 focus:ring-primary/50 bg-white">
+                    <input type="text" name="motivo" placeholder="Motivo (opcional)" class="w-full px-4 py-3 rounded-xl border border-gray-200 text-base focus:ring-2 focus:ring-primary/50">
+                    <div class="flex gap-2 pt-2">
+                        <button type="button" @click="reagendarOpen = false" class="flex-1 py-3 border border-gray-200 rounded-xl font-bold hover:bg-gray-50">Voltar</button>
+                        <button type="submit" class="flex-1 py-3 bg-primary text-white rounded-xl font-bold shadow-md shadow-primary/30 hover:bg-primaryHover">Confirmar</button>
+                    </div>
+                </form>
+            </template>
+        </div>
+    </div>
+
+    <div x-cloak x-show="excluirOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm" x-transition.opacity>
+        <div class="bg-white rounded-2xl w-full max-w-sm p-6 relative" @click.away="excluirOpen = false">
+            <h3 class="font-bold text-xl mb-4 text-red-600 flex items-center gap-2"><i data-lucide="trash-2"></i> Excluir Sessão</h3>
+            <template x-if="aulaAtiva">
+                <form method="POST" :action="`/agenda/aula/${aulaAtiva.id}/excluir`" class="space-y-4">
+                    <p class="text-sm">Tem certeza que deseja excluir completamente a sessão de <strong x-text="aulaAtiva.nome"></strong> do calendário?</p>
+                    <p class="text-xs text-red-500 font-bold">Esta ação remove a aula permanentemente e ela não aparece mais.</p>
+                    <div class="flex gap-2 pt-2">
+                        <button type="button" @click="excluirOpen = false" class="flex-1 py-3 border border-gray-200 rounded-xl font-bold hover:bg-gray-50">Voltar</button>
+                        <button type="submit" class="flex-1 py-3 bg-gray-800 text-white rounded-xl font-bold shadow-md shadow-gray-500/30 hover:bg-gray-900">Excluir</button>
+                    </div>
+                </form>
+            </template>
+        </div>
+    </div>
+
 </div>
 {% endblock %}

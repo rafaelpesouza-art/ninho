@@ -41,6 +41,10 @@
     {# AÇÕES (ocultadas na impressão)                                       #}
     {# ------------------------------------------------------------------ #}
     <div class="flex flex-wrap gap-3 mb-6 print:hidden">
+        <a href="{{ url_for('comunicacao.editar', comm_id=comm.id) }}"
+           class="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-50 transition-colors shadow-sm">
+            <i data-lucide="pencil" class="w-4 h-4"></i> Editar
+        </a>
 
         <button @click="copiar()"
                 class="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all"

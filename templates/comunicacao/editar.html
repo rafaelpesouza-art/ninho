@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Editar — {{ comm.titulo }}{% endblock %}
+
+{% block page_header %}
+<div class="flex items-center gap-3">
+    <a href="{{ url_for('comunicacao.ver', comm_id=comm.id) }}"
+       class="p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors">
+        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+    </a>
+    <div>
+        <h1 class="text-xl font-black text-gray-800 leading-none">Editar Relatório</h1>
+        <p class="text-gray-500 text-sm font-semibold mt-0.5">
+            {{ (comm.pacientes or {}).get('nome', '—') }} · {{ tipo_labels.get(comm.tipo, comm.tipo) }}
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto pb-24 md:pb-6">
+    <form method="POST" class="space-y-5">
+
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
+
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Título</label>
+                <input type="text" name="titulo" value="{{ comm.titulo or '' }}"
+                       class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/40">
+            </div>
+
+            {% if comm.tipo == 'relatorio' %}
+
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Resumo do Período</label>
+                <textarea name="resumo" rows="3"
+                          class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none">{{ comm.resumo or '' }}</textarea>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Pontos Fortes</label>
+                <textarea name="objetivos_met" rows="3"
+                          class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none">{{ comm.objetivos_met or '' }}</textarea>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Pontos de Atenção</label>
+                <textarea name="pontos_atencao" rows="3"
+                          class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none">{{ comm.pontos_atencao or '' }}</textarea>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Recomendações</label>
+                <textarea name="proximos_passos" rows="3"
+                          class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none">{{ comm.proximos_passos or '' }}</textarea>
+            </div>
+
+            {% else %}
+
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Texto da Mensagem</label>
+                <textarea name="texto_whatsapp" rows="8"
+                          class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none">{{ comm.texto_whatsapp or comm.conteudo or '' }}</textarea>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Direcionamentos para casa</label>
+                <textarea name="proximos_passos" rows="3"
+                          class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/40 resize-none">{{ comm.proximos_passos or '' }}</textarea>
+            </div>
+
+            {% endif %}
+
+        </div>
+
+        <div class="flex gap-3">
+            <button type="submit"
+                    class="flex-1 py-3 bg-primary text-white font-bold rounded-xl hover:opacity-90 transition-opacity shadow-sm">
+                Salvar Alterações
+            </button>
+            <a href="{{ url_for('comunicacao.ver', comm_id=comm.id) }}"
+               class="px-6 py-3 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition-colors text-center">
+                Cancelar
+            </a>
+        </div>
+
+    </form>
+</div>
+{% endblock %}

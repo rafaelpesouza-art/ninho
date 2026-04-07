@@ -3,7 +3,7 @@ from flask import render_template, request, redirect, url_for, flash, session, j
 from . import agenda_bp
 from .model import (
     listar_aulas_mes, listar_aulas_dia, buscar_aula,
-    criar_aula_avulsa, cancelar_aula, reagendar_aula, marcar_realizada,
+    criar_aula_avulsa, cancelar_aula, reagendar_aula, marcar_realizada, deletar_aula,
     listar_feriados, criar_feriado, deletar_feriado, cancelar_aulas_em_feriado,
     gerar_aulas_mes_todos_alunos, montar_calendario, _navegar_mes, MESES, STATUS_LABELS,
 )
@@ -83,6 +83,7 @@ def index():
         ano=ano, mes=mes,
         semanas=cal["semanas"],
         por_dia=cal["por_dia"],
+        aulas_mes=aulas_mes,
         data_selecionada=data_selecionada,
         aulas_dia=aulas_dia,
         anterior=anterior,
@@ -140,6 +141,23 @@ def cancelar(aula_id):
     except Exception as e:
         flash(f"Erro ao cancelar: {e}", "danger")
 
+    return redirect(request.referrer or url_for("agenda.index"))
+
+
+# ---------------------------------------------------------------------------
+# EXCLUIR AULA
+# ---------------------------------------------------------------------------
+
+@agenda_bp.route("/aula/<aula_id>/excluir", methods=["POST"])
+@login_required
+def excluir(aula_id):
+    sb = _sb()
+    professor_id = session["user_id"]
+    try:
+        deletar_aula(sb, professor_id, aula_id)
+        flash("Aula excluída com sucesso.", "success")
+    except Exception as e:
+        flash(f"Erro ao excluir aula: {e}", "danger")
     return redirect(request.referrer or url_for("agenda.index"))
 
 

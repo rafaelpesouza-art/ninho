@@ -291,6 +291,11 @@
                     config.locale = "pt";
                     config.time_24hr = true;
                     config.minuteIncrement = 10;
+                    const userOnChange = config.onChange;
+                    config.onChange = (selectedDates, dateStr, instance) => {
+                        if (userOnChange) userOnChange(selectedDates, dateStr, instance);
+                        el.dispatchEvent(new CustomEvent('flatpickr-change', { detail: dateStr, bubbles: true }));
+                    };
                     flatpickr(el, config);
                 });
             });

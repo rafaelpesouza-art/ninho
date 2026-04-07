@@ -189,31 +189,47 @@ def dashboard():
             "link": url_for("financeiro.faturas", status="vencida"),
         })
 
-    # Sessões realizadas sem registro (últimos 30 dias) — alerta consolidado
+    # Sessões pendentes de registro: realizadas sem registro + agendadas já passadas (30 dias)
     sessoes_sem_registro = 0
     try:
         inicio_30 = (hoje - timedelta(days=30)).isoformat()
+        agora_iso = hoje.isoformat() + "T23:59:59"
+
+        # Sessões marcadas como realizadas mas sem registro
         r_real = (
             sb.table("aulas")
             .select("id")
             .eq("professor_id", professor_id)
             .eq("status", "realizada")
             .gte("data_hora", inicio_30 + "T00:00:00")
-            .lte("data_hora", hoje.isoformat() + "T23:59:59")
+            .lte("data_hora", agora_iso)
             .execute()
         )
-        aulas_real = r_real.data or []
-        ids_realizadas = [a["id"] for a in aulas_real]
-        if ids_realizadas:
+        ids_realizadas = [a["id"] for a in (r_real.data or [])]
+
+        # Sessões agendadas cuja data já passou (não foram confirmadas nem canceladas)
+        r_aged = (
+            sb.table("aulas")
+            .select("id")
+            .eq("professor_id", professor_id)
+            .eq("status", "agendada")
+            .gte("data_hora", inicio_30 + "T00:00:00")
+            .lt("data_hora", hoje.isoformat() + "T00:00:00")
+            .execute()
+        )
+        ids_agendadas_passadas = [a["id"] for a in (r_aged.data or [])]
+
+        todos_ids = ids_realizadas + ids_agendadas_passadas
+        if todos_ids:
             r_reg = (
                 sb.table("registros_sessao")
                 .select("aula_id")
                 .eq("professor_id", professor_id)
-                .in_("aula_id", ids_realizadas)
+                .in_("aula_id", todos_ids)
                 .execute()
             )
             ids_com_registro = {a["aula_id"] for a in (r_reg.data or [])}
-            sessoes_sem_registro = len([i for i in ids_realizadas if i not in ids_com_registro])
+            sessoes_sem_registro = len([i for i in todos_ids if i not in ids_com_registro])
     except Exception:
         pass
 
@@ -349,13 +365,14 @@ def pendencias():
 
     hoje = date.today()
 
-    # 1. Sessões sem registro
+    # 1. Sessões sem registro: realizadas sem registro + agendadas já passadas
     sessoes_sem_registro_lista = []
     try:
         inicio_30 = (hoje - timedelta(days=30)).isoformat()
+
         r_real = (
             sb.table("aulas")
-            .select("id, data_hora, alunos(id, nome)")
+            .select("id, data_hora, status, alunos(id, nome)")
             .eq("professor_id", professor_id)
             .eq("status", "realizada")
             .gte("data_hora", inicio_30 + "T00:00:00")
@@ -363,20 +380,31 @@ def pendencias():
             .order("data_hora", desc=True)
             .execute()
         )
-        aulas_real = r_real.data or []
-        ids_realizadas = [a["id"] for a in aulas_real]
+        r_aged = (
+            sb.table("aulas")
+            .select("id, data_hora, status, alunos(id, nome)")
+            .eq("professor_id", professor_id)
+            .eq("status", "agendada")
+            .gte("data_hora", inicio_30 + "T00:00:00")
+            .lt("data_hora", hoje.isoformat() + "T00:00:00")
+            .order("data_hora", desc=True)
+            .execute()
+        )
+        todas_aulas = (r_real.data or []) + (r_aged.data or [])
+        todos_ids = [a["id"] for a in todas_aulas]
 
-        if ids_realizadas:
+        if todos_ids:
             r_reg = (
                 sb.table("registros_sessao")
                 .select("aula_id")
                 .eq("professor_id", professor_id)
-                .in_("aula_id", ids_realizadas)
+                .in_("aula_id", todos_ids)
                 .execute()
             )
             ids_com_registro = {a["aula_id"] for a in (r_reg.data or [])}
-            sessoes_sem_registro_lista = [a for a in aulas_real if a["id"] not in ids_com_registro]
-    except Exception as e:
+            sessoes_sem_registro_lista = [a for a in todas_aulas if a["id"] not in ids_com_registro]
+            sessoes_sem_registro_lista.sort(key=lambda a: a["data_hora"], reverse=True)
+    except Exception:
         pass
 
     # 2. Anamneses pendentes

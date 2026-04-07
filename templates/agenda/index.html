@@ -22,12 +22,47 @@
 
 
 {% block content %}
+<script>
+const _aulasMes = [{% for a in aulas_mes %}{"data_hora":{{ a.data_hora | tojson }},"duracao_min":{{ a.duracao_min | default(60) }},"status":{{ a.status | tojson }},"alunos":{"nome":{{ ((a.alunos.nome if a.alunos else '') or '') | tojson }}}},{% endfor %}];
+</script>
 <div x-data="{
     currentTab: '{{ 'dia' if data_selecionada else 'mes' }}',
-    novaAulaOpen: false, cancelarOpen: false, reagendarOpen: false, aulaAtiva: null,
-    init() { window.addEventListener('open-nova-aula', () => this.novaAulaOpen = true); },
+    novaAulaOpen: false, cancelarOpen: false, reagendarOpen: false, excluirOpen: false, aulaAtiva: null,
+    conflito: null,
+    init() {
+        window.addEventListener('open-nova-aula', () => this.novaAulaOpen = true);
+    },
     abrirCancelar(aula) { this.aulaAtiva = aula; this.cancelarOpen = true; },
-    abrirReagendar(aula) { this.aulaAtiva = aula; this.reagendarOpen = true; }
+    abrirReagendar(aula) { this.aulaAtiva = aula; this.reagendarOpen = true; },
+    abrirExcluir(aula) { this.aulaAtiva = aula; this.excluirOpen = true; },
+    checkConflito(dataHoraStr, duracaoMin) {
+        this.conflito = null;
+        if (!dataHoraStr) return;
+        // Usa substring(0,16) para ignorar fuso horário em ambos os lados
+        const novoInicio = new Date(dataHoraStr.substring(0, 16));
+        if (isNaN(novoInicio)) return;
+        const novoDur = parseInt(duracaoMin) || 60;
+        const novoFim = new Date(novoInicio.getTime() + novoDur * 60000);
+        for (const a of _aulasMes) {
+            if (!a.data_hora) continue;
+            if (a.status === 'cancelada_professor' || a.status === 'cancelada_aluno' || a.status === 'cancelada') continue;
+            const existInicio = new Date(a.data_hora.substring(0, 16));
+            const existFim = new Date(existInicio.getTime() + (a.duracao_min || 60) * 60000);
+            if (novoInicio < existFim && novoFim > existInicio) {
+                const nome = (a.alunos && a.alunos.nome) ? a.alunos.nome : 'outro paciente';
+                const hora = a.data_hora.substring(11, 16);
+                this.conflito = nome + ' às ' + hora;
+                return;
+            }
+        }
+    },
+    submeterNova(e) {
+        if (this.conflito) {
+            if (!confirm('⚠️ Atenção: este horário já está reservado para ' + this.conflito + '.\n\nDeseja agendar mesmo assim?')) {
+                e.preventDefault();
+            }
+        }
+    }
 }" class="pb-24 md:pb-6">
 
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -251,8 +286,14 @@
                                 <i data-lucide="calendar-sync" class="w-5 h-5"></i>
                             </button>
                             <button @click="abrirCancelar({ id: '{{ aula.id }}', nome: '{{ aula.alunos.nome if aula.alunos else '' }}', hora: '{{ aula.data_hora[11:16] }}' })"
-                                    class="flex-1 px-4 py-3 bg-red-50 text-red-500 rounded-xl font-bold border border-red-200 hover:bg-red-100 transition-colors flex items-center justify-center gap-1">
+                                    class="flex-1 px-4 py-3 bg-red-50 text-red-500 rounded-xl font-bold border border-red-200 hover:bg-red-100 transition-colors flex items-center justify-center gap-1"
+                                    title="Cancelar Sessão">
                                 <i data-lucide="x-circle" class="w-5 h-5"></i>
+                            </button>
+                            <button @click="abrirExcluir({ id: '{{ aula.id }}', nome: '{{ aula.alunos.nome if aula.alunos else '' }}', hora: '{{ aula.data_hora[11:16] }}' })"
+                                    class="flex-1 px-4 py-3 bg-gray-100 text-gray-500 rounded-xl font-bold border border-gray-200 hover:bg-gray-200 hover:text-red-600 transition-colors flex items-center justify-center gap-1"
+                                    title="Excluir Sessão Completamente">
+                                <i data-lucide="trash-2" class="w-5 h-5"></i>
                             </button>
                         </div>
                     </div>
@@ -261,6 +302,13 @@
                         <a href="{{ url_for('registros.novo', aula_id=aula.id, auto=1) }}" class="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-primary hover:bg-primaryHover text-white font-bold shadow-sm transition-all focus:ring-4 focus:ring-primaryLight">
                             <i data-lucide="file-text" class="w-5 h-5"></i> <span class="sm:hidden lg:inline">Ver Registro</span>
                         </a>
+                    </div>
+                    {% elif 'cancelada' in aula.status %}
+                    <div class="flex flex-row sm:flex-col lg:flex-row gap-2 w-full sm:w-auto mt-2 sm:mt-0 pt-3 sm:pt-0 border-t border-gray-100 sm:border-0">
+                        <button @click="abrirExcluir({ id: '{{ aula.id }}', nome: '{{ aula.alunos.nome if aula.alunos else '' }}', hora: '{{ aula.data_hora[11:16] }}' })"
+                                class="w-full flex items-center justify-center gap-2 px-5 py-3 bg-gray-100 text-gray-500 rounded-xl font-bold border border-gray-200 hover:bg-gray-200 hover:text-red-600 transition-colors">
+                            <i data-lucide="trash-2" class="w-5 h-5"></i> <span class="sm:hidden lg:inline">Excluir Sessão</span>
+                        </button>
                     </div>
                     {% endif %}
                 </div>
@@ -342,7 +390,7 @@
                 <h3 class="font-bold text-gray-800 text-lg flex items-center gap-2"><i data-lucide="plus-circle" class="w-5 h-5 text-primary"></i> Nova Aula</h3>
                 <button @click="novaAulaOpen = false" class="p-2 rounded-full bg-white border border-gray-200 text-gray-400 hover:text-gray-700"><i data-lucide="x" class="w-4 h-4"></i></button>
             </div>
-            <form method="POST" action="{{ url_for('agenda.nova_aula') }}" class="p-6 space-y-5">
+            <form method="POST" action="{{ url_for('agenda.nova_aula') }}" class="p-6 space-y-5" @submit="submeterNova($event)">
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-1.5">Paciente</label>
                     <select name="aluno_id" required class="w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/50 text-base bg-white">
@@ -351,14 +399,32 @@
                 </div>
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-1.5">Data e Horário</label>
-                    <input type="text" x-flatpickr="{enableTime: true, dateFormat: 'Y-m-d\\TH:i'}" name="data_hora" required value="{{ (data_selecionada.isoformat() if data_selecionada else '%04d-%02d-%02d'|format(ano, mes, hoje.day if ano == hoje.year and mes == hoje.month else 1)) + 'T08:00' }}" class="w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/50 text-base bg-white">
+                    <input type="text"
+                           x-flatpickr="{enableTime: true, dateFormat: 'Y-m-d\\TH:i'}"
+                           x-ref="dataHoraInput"
+                           @flatpickr-change="checkConflito($event.detail, $refs.duracaoInput.value)"
+                           name="data_hora" required
+                           value="{{ (data_selecionada.isoformat() if data_selecionada else '%04d-%02d-%02d'|format(ano, mes, hoje.day if ano == hoje.year and mes == hoje.month else 1)) + 'T08:00' }}"
+                           class="w-full px-4 py-3.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/50 text-base bg-white">
+                    <div x-show="conflito" x-cloak class="mt-2 flex items-center gap-2 text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-sm font-semibold">
+                        <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0"></i>
+                        <span>Horário já reservado para <strong x-text="conflito"></strong></span>
+                    </div>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-1.5">Duração (min)</label>
-                        <input type="number" name="duracao_min" value="60" min="15" step="15" class="w-full px-4 py-3.5 rounded-xl border border-gray-200 text-center text-base font-bold bg-white">
+                        <input type="number" name="duracao_min" value="60" min="15" step="15"
+                               x-ref="duracaoInput"
+                               @change="checkConflito($refs.dataHoraInput.value, $event.target.value)"
+                               class="w-full px-4 py-3.5 rounded-xl border border-gray-200 text-center text-base font-bold bg-white">
                     </div>
-                    <div class="flex items-end"><button type="submit" class="w-full py-3.5 bg-primary text-white font-bold rounded-xl active:scale-95 transition-transform">Agendar</button></div>
+                    <div class="flex items-end">
+                        <button type="submit" class="w-full py-3.5 font-bold rounded-xl active:scale-95 transition-all"
+                                :class="conflito ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-primary text-white'">
+                            <span x-text="conflito ? '⚠️ Agendar assim mesmo' : 'Agendar'"></span>
+                        </button>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-1.5">Observações</label>
@@ -392,6 +458,22 @@
                     <input type="text" x-flatpickr="{enableTime: true, dateFormat: 'Y-m-d\\TH:i'}" name="nova_data_hora" required :value="aulaAtiva.hora" class="w-full px-4 py-3 rounded-xl border border-gray-200 text-base">
                     <input type="text" name="motivo" placeholder="Motivo (opcional)" class="w-full px-4 py-3 rounded-xl border border-gray-200 text-base">
                     <div class="flex gap-2 pt-2"><button type="button" @click="reagendarOpen = false" class="flex-1 py-3 border border-gray-200 rounded-xl font-bold">Voltar</button><button type="submit" class="flex-1 py-3 bg-primary text-white rounded-xl font-bold shadow-md shadow-primary/30">Confirmar</button></div>
+                </form>
+            </template>
+        </div>
+    </div>
+
+    <div x-cloak x-show="excluirOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm" x-transition.opacity>
+        <div class="bg-white rounded-2xl w-full max-w-sm p-6 relative" @click.away="excluirOpen = false">
+            <h3 class="font-bold text-xl mb-4 text-red-600 flex items-center gap-2"><i data-lucide="trash-2"></i> Excluir Sessão</h3>
+            <template x-if="aulaAtiva">
+                <form method="POST" :action="`/agenda/aula/${aulaAtiva.id}/excluir`" class="space-y-4">
+                    <p class="text-sm">Tem certeza que deseja excluir completamente a sessão de <strong x-text="aulaAtiva.nome"></strong> do calendário?</p>
+                    <p class="text-xs text-red-500 font-bold">Esta ação remove a aula permanentemente e ela não aparece mais.</p>
+                    <div class="flex gap-2 pt-2">
+                        <button type="button" @click="excluirOpen = false" class="flex-1 py-3 border border-gray-200 rounded-xl font-bold">Voltar</button>
+                        <button type="submit" class="flex-1 py-3 bg-gray-800 text-white rounded-xl font-bold shadow-md shadow-gray-500/30">Excluir</button>
+                    </div>
                 </form>
             </template>
         </div>

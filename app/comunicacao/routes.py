@@ -5,7 +5,7 @@ from . import comunicacao_bp
 from .model import (
     listar_registros_periodo, gerar_texto_devolutiva, gerar_texto_relatorio,
     gerar_prefill_relatorio,
-    salvar_comunicacao, listar_historico, buscar_comunicacao,
+    salvar_comunicacao, atualizar_comunicacao, listar_historico, buscar_comunicacao,
     HUMOR_LABELS, PARTICIPACAO_STARS, TIPO_LABELS,
 )
 import json
@@ -283,6 +283,25 @@ def ver(comm_id):
         return redirect(url_for("comunicacao.index"))
     return render_template("comunicacao/ver.html", comm=comm,
                            tipo_labels=TIPO_LABELS)
+
+
+@comunicacao_bp.route("/ver/<comm_id>/editar", methods=["GET", "POST"])
+@login_required
+def editar(comm_id):
+    sb = _sb()
+    professor_id = session["user_id"]
+    comm = buscar_comunicacao(sb, professor_id, comm_id)
+    if not comm:
+        flash("Comunicação não encontrada.", "danger")
+        return redirect(url_for("comunicacao.index"))
+    if request.method == "POST":
+        try:
+            atualizar_comunicacao(sb, professor_id, comm_id, request.form)
+            flash("Relatório atualizado!", "success")
+        except Exception as e:
+            flash(f"Erro ao salvar: {e}", "danger")
+        return redirect(url_for("comunicacao.ver", comm_id=comm_id))
+    return render_template("comunicacao/editar.html", comm=comm, tipo_labels=TIPO_LABELS)
 
 
 @comunicacao_bp.route("/relatorio/<comm_id>/pdf")

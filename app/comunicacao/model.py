@@ -27,44 +27,36 @@ def listar_registros_periodo(
     sb, professor_id: str, aluno_id: str, inicio: str, fim: str
 ) -> list:
     """
-    Busca aulas realizadas no período com seus registros e fotos.
+    Busca registros de sessão no período com seus dados de aula e fotos.
     inicio/fim: 'YYYY-MM-DD'
     """
-    aulas_res = (
-        sb.table("aulas")
-        .select("id, data_hora, duracao_min")
-        .eq("professor_id", professor_id)
-        .eq("aluno_id", aluno_id)
-        .eq("status", "realizada")
-        .gte("data_hora", inicio + "T00:00:00")
-        .lte("data_hora", fim + "T23:59:59")
-        .order("data_hora")
-        .execute()
-    )
-    aulas = aulas_res.data or []
-    if not aulas:
-        return []
-
-    aula_ids = [a["id"] for a in aulas]
-    aulas_map = {a["id"]: a for a in aulas}
-
     reg_res = (
         sb.table("registros_sessao")
-        .select("*, fotos_sessao(id, storage_path, legenda)")
+        .select("*, aulas(id, data_hora, duracao_min), fotos_sessao(id, storage_path, legenda)")
         .eq("professor_id", professor_id)
         .eq("aluno_id", aluno_id)
-        .in_("aula_id", aula_ids)
-        .order("criado_em")
         .execute()
     )
-    registros = reg_res.data or []
+    registros_raw = reg_res.data or []
 
-    for r in registros:
-        aula = aulas_map.get(r["aula_id"], {})
-        r["data_hora"]  = aula.get("data_hora", "")
+    # Filtra por data no Python para evitar problemas de formato de timezone
+    inicio_pfx = inicio          # "YYYY-MM-DD"
+    fim_pfx    = fim             # "YYYY-MM-DD"
+
+    registros = []
+    for r in registros_raw:
+        aula = r.pop("aulas", None) or {}
+        data_hora = aula.get("data_hora", "") or ""
+        # Compara apenas os primeiros 10 chars (data) para robustez com timezones
+        data_pfx = data_hora[:10]
+        if not data_pfx or not (inicio_pfx <= data_pfx <= fim_pfx):
+            continue
+        r["data_hora"]   = data_hora
         r["duracao_min"] = aula.get("duracao_min", 0)
-        r["fotos"]      = r.pop("fotos_sessao", None) or []
+        r["fotos"]       = r.pop("fotos_sessao", None) or []
+        registros.append(r)
 
+    registros.sort(key=lambda r: r.get("data_hora", ""))
     return registros
 
 
@@ -219,6 +211,26 @@ def salvar_comunicacao(
         "fotos_selecionadas": dados.get("fotos_selecionadas", []),
     }
     res = sb.table("relatorios_evolucao").insert(payload).execute()
+    return (res.data or [{}])[0]
+
+
+def atualizar_comunicacao(sb, professor_id: str, comm_id: str, dados: dict) -> dict:
+    payload = {
+        "titulo":          (dados.get("titulo") or "").strip() or "Comunicação",
+        "conteudo":        dados.get("conteudo", ""),
+        "objetivos_met":   dados.get("objetivos_met", ""),
+        "pontos_atencao":  dados.get("pontos_atencao", ""),
+        "proximos_passos": dados.get("proximos_passos", ""),
+        "texto_whatsapp":  dados.get("texto_whatsapp", ""),
+        "resumo":          dados.get("resumo", ""),
+    }
+    res = (
+        sb.table("relatorios_evolucao")
+        .update(payload)
+        .eq("id", comm_id)
+        .eq("professor_id", professor_id)
+        .execute()
+    )
     return (res.data or [{}])[0]
 
 

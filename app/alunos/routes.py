@@ -165,7 +165,9 @@ def ficha(aluno_id):
     if not dados:
         flash("Aluno não encontrado.", "warning")
         return redirect(url_for("alunos.lista"))
-    return render_template("alunos/ficha.html", **dados, dias_semana={k: v for k, v in DIAS_SEMANA})
+    from ..comunicacao.model import listar_historico
+    relatorios = listar_historico(sb, professor_id, aluno_id=aluno_id)
+    return render_template("alunos/ficha.html", **dados, dias_semana={k: v for k, v in DIAS_SEMANA}, relatorios=relatorios)
 
 
 # ---------------------------------------------------------------------------
