@@ -285,6 +285,19 @@ def ver(comm_id):
                            tipo_labels=TIPO_LABELS)
 
 
+@comunicacao_bp.route("/ver/<comm_id>/excluir", methods=["POST"])
+@login_required
+def excluir(comm_id):
+    sb = _sb()
+    professor_id = session["user_id"]
+    try:
+        sb.table("relatorios_evolucao").delete().eq("id", comm_id).eq("professor_id", professor_id).execute()
+        flash("Relatório excluído.", "success")
+    except Exception as e:
+        flash(f"Erro ao excluir: {e}", "danger")
+    return redirect(url_for("comunicacao.historico"))
+
+
 @comunicacao_bp.route("/ver/<comm_id>/editar", methods=["GET", "POST"])
 @login_required
 def editar(comm_id):

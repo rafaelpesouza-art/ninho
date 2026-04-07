@@ -46,6 +46,14 @@
             <i data-lucide="pencil" class="w-4 h-4"></i> Editar
         </a>
 
+        <form method="POST" action="{{ url_for('comunicacao.excluir', comm_id=comm.id) }}"
+              onsubmit="return confirm('Excluir este relatório permanentemente?')">
+            <button type="submit"
+                    class="flex items-center gap-2 px-5 py-2.5 bg-white border border-red-200 text-red-600 rounded-xl font-bold text-sm hover:bg-red-50 transition-colors shadow-sm">
+                <i data-lucide="trash-2" class="w-4 h-4"></i> Excluir
+            </button>
+        </form>
+
         <button @click="copiar()"
                 class="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all"
                 :class="copiado ? 'bg-green-500 text-white' : 'bg-primaryLight text-primary border border-primary/10 hover:bg-primary/10'">
