@@ -14,6 +14,16 @@
             <h1 class="text-2xl font-bold text-gray-800 tracking-tight">Avaliação</h1>
         </div>
     </div>
+    <div class="shrink-0">
+        <button type="button" @click="$dispatch('open-ai-assistant')"
+                class="hidden sm:flex items-center gap-2 px-4 py-2 border-2 border-primary text-primary font-bold rounded-xl hover:bg-primaryLight/30 transition-colors shadow-sm focus:ring-2 focus:ring-primary/40 group">
+            <i data-lucide="sparkles" class="w-4 h-4 group-hover:scale-110 transition-transform"></i> Usar IA
+        </button>
+        <button type="button" @click="$dispatch('open-ai-assistant')"
+                class="sm:hidden flex items-center justify-center p-2.5 bg-primaryLight/30 text-primary border border-primary/20 rounded-xl hover:bg-primaryLight transition-colors">
+            <i data-lucide="sparkles" class="w-5 h-5"></i>
+        </button>
+    </div>
 </div>
 {% endblock %}
 
@@ -266,69 +276,95 @@
     <!-- ================= PRINT CONTAINER ================= -->
     <div class="hidden print:block print:w-full print:bg-white text-gray-800 font-sans" aria-hidden="true">
         
-        <!-- HEADER -->
-        <div class="mb-8 text-center border-b-2 border-primary/20 pb-6 mt-4">
-            <div class="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 overflow-hidden border-2 border-primary/20">
-                {% if session.get('user_logo_url') %}
-                <img src="{{ session.get('user_logo_url') }}" class="w-full h-full object-contain" alt="Logo">
-                {% else %}
-                <div class="w-full h-full bg-primary text-white flex items-center justify-center">
-                    <i data-lucide="graduation-cap" class="w-8 h-8"></i>
-                </div>
-                {% endif %}
-            </div>
-            <h2 class="text-2xl font-black text-primary uppercase tracking-widest">{{ session.get('user_nome', 'Profissional') }}</h2>
-            <h3 class="text-lg font-bold text-gray-500 mt-1 uppercase tracking-widest">Avaliação Clínica</h3>
-        </div>
+        <!-- Faixa Decorativa Topo -->
+        <div class="absolute top-0 left-0 right-0 h-[6px] bg-primary"></div>
 
-        <!-- DADOS PACIENTE E PERÍODO -->
-        <div class="flex justify-between items-end mb-8 pb-4 border-b border-gray-100">
-            <div>
-                <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Paciente</p>
-                <p class="text-xl font-black text-gray-800">{{ aluno.nome }}</p>
+        <!-- HEADER -->
+        <header class="flex flex-col sm:flex-row sm:items-end justify-between border-b-2 border-gray-100 pb-6 mb-8 mt-4 gap-4 avoid-page-break">
+            <div class="flex items-center gap-5">
+                {% if session.get('user_logo_url') %}
+                    <img src="{{ session.get('user_logo_url') }}" class="h-16 w-auto object-contain max-w-[150px]" alt="Logotipo">
+                {% else %}
+                    <div class="w-16 h-16 rounded-3xl bg-primaryLight flex items-center justify-center text-primary shrink-0 border border-primary/10">
+                        <i data-lucide="award" class="w-8 h-8"></i>
+                    </div>
+                {% endif %}
+                
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight leading-none mb-1.5 uppercase">{{ session.get('user_nome', 'Profissional') }}</h1>
+                    <p class="text-[11px] font-black text-primary tracking-[0.15em] uppercase border-l-2 border-primary pl-2">Avaliação Clínica</p>
+                </div>
             </div>
-            <div class="text-right">
-                <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Período de Avaliação</p>
-                <p class="text-base font-bold text-gray-800">
-                    <span x-text="dataInicio ? dataInicio.split('-').reverse().join('/') : '—'"></span> a 
-                    <span x-text="dataFim ? dataFim.split('-').reverse().join('/') : '—'"></span>
-                </p>
+
+            <div class="text-left sm:text-right bg-gray-50 sm:bg-transparent p-3 sm:p-0 rounded-xl">
+                <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Paciente(a)</p>
+                <p class="text-lg font-bold text-gray-800 leading-none">{{ aluno.nome }}</p>
+            </div>
+        </header>
+
+        <!-- Metadata Cards -->
+        <div class="flex flex-wrap gap-4 mb-10 avoid-page-break">
+            <div class="flex items-center gap-3 bg-gray-50 border border-gray-100 px-5 py-3 rounded-2xl">
+                <i data-lucide="calendar-check" class="w-5 h-5 text-gray-400"></i>
+                <div>
+                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Período de Avaliação</p>
+                    <p class="text-sm font-bold text-gray-700 mt-0.5">
+                        <span x-text="dataInicio ? dataInicio.split('-').reverse().join('/') : '—'"></span> a 
+                        <span x-text="dataFim ? dataFim.split('-').reverse().join('/') : '—'"></span>
+                    </p>
+                </div>
             </div>
         </div>
 
         <!-- GLOBALS -->
-        <div class="mb-8 space-y-6">
+        <div class="mb-8 space-y-6 avoid-page-break">
             <div x-show="instrumentos">
-                <h4 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-1">Instrumentos Utilizados</h4>
-                <p class="text-base font-medium text-gray-800" x-text="instrumentos"></p>
+                <h3 class="flex items-center gap-2 text-[11px] font-black text-gray-400 uppercase tracking-widest mb-2">
+                    <i data-lucide="settings" class="w-3.5 h-3.5"></i> Instrumentos Utilizados
+                </h3>
+                <p class="text-sm font-bold text-gray-800 pl-6" x-text="instrumentos"></p>
             </div>
-            <div class="grid grid-cols-2 gap-6">
+            <div class="grid grid-cols-2 gap-6 mt-4">
                 <div x-show="pontosFortes">
-                    <h4 class="text-sm font-bold text-green-600 uppercase tracking-widest mb-2 flex items-center gap-1"><i data-lucide="trending-up" class="w-4 h-4"></i> Pontos Fortes</h4>
-                    <p class="whitespace-pre-wrap text-sm font-medium leading-relaxed text-gray-700" x-text="pontosFortes"></p>
+                    <h3 class="flex items-center gap-2 text-[11px] font-black text-green-600 uppercase tracking-widest mb-2"><i data-lucide="trending-up" class="w-4 h-4"></i> Pontos Fortes</h3>
+                    <div class="pl-6 text-gray-700 leading-relaxed text-sm whitespace-pre-wrap font-medium" x-text="pontosFortes"></div>
                 </div>
                 <div x-show="pontosAtencao">
-                    <h4 class="text-sm font-bold text-amber-600 uppercase tracking-widest mb-2 flex items-center gap-1"><i data-lucide="alert-triangle" class="w-4 h-4"></i> Pontos de Atenção</h4>
-                    <p class="whitespace-pre-wrap text-sm font-medium leading-relaxed text-gray-700" x-text="pontosAtencao"></p>
+                    <h3 class="flex items-center gap-2 text-[11px] font-black text-amber-600 uppercase tracking-widest mb-2"><i data-lucide="alert-triangle" class="w-4 h-4"></i> Pontos de Atenção</h3>
+                    <div class="pl-6 text-gray-700 leading-relaxed text-sm whitespace-pre-wrap font-medium" x-text="pontosAtencao"></div>
                 </div>
             </div>
         </div>
 
         <!-- CONTEÚDO LIVRE -->
-        <div x-show="modo === 'livre'">
-            <h4 class="text-lg font-bold text-primary border-b border-primaryLight pb-2 mb-4">Relatório Global</h4>
-            <p class="whitespace-pre-wrap text-base font-medium leading-relaxed text-gray-700 text-justify" x-text="conteudoLivre"></p>
+        <div x-show="modo === 'livre'" class="mt-8 page-break-inside-avoid">
+            <h3 class="flex items-center gap-2 text-[12px] font-black text-gray-400 uppercase tracking-widest mb-3">
+                <div class="w-6 h-6 rounded-lg bg-blue-100 text-blue-500 flex items-center justify-center"><i data-lucide="text" class="w-3.5 h-3.5"></i></div>
+                Relatório Global
+            </h3>
+            <div class="pl-8 text-gray-700 leading-relaxed text-[15px] whitespace-pre-wrap font-medium text-justify" x-text="conteudoLivre"></div>
         </div>
 
         <!-- CONTEÚDO ÁREAS -->
-        <div x-show="modo === 'areas'" class="space-y-8">
+        <div x-show="modo === 'areas'" class="space-y-8 mt-8">
             <template x-for="(a, i) in areas" :key="i">
-                <div style="page-break-inside: avoid;">
-                    <h4 class="text-lg font-bold text-primary border-l-4 border-primary pl-3 mb-3 bg-primaryLight/10 py-1" x-text="a.area"></h4>
-                    <p class="whitespace-pre-wrap text-base font-medium leading-relaxed text-gray-700 pl-4 text-justify" x-text="a.observacao"></p>
+                <div class="avoid-page-break">
+                    <h3 class="flex items-center gap-2 text-[12px] font-black text-gray-400 uppercase tracking-widest mb-3">
+                        <div class="w-6 h-6 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center"><i data-lucide="grid-3x3" class="w-3.5 h-3.5"></i></div>
+                        <span x-text="a.area"></span>
+                    </h3>
+                    <div class="pl-8 text-gray-700 leading-relaxed text-[15px] whitespace-pre-wrap font-medium text-justify" x-text="a.observacao"></div>
                 </div>
             </template>
         </div>
+        
+        <!-- Assinatura Final -->
+        <div class="mt-20 pt-10 text-center page-break-inside-avoid">
+            <div class="w-48 h-px bg-gray-200 mx-auto mb-4"></div>
+            <p class="font-black text-gray-800 text-lg uppercase">{{ session.get('user_nome', session.get('user_name', 'Tutor(a)')) }}</p>
+            <p class="text-[10px] font-bold text-gray-400 tracking-widest uppercase mt-1">Ninho Tutor</p>
+        </div>
+        
     </div>
 </div>
 
@@ -441,4 +477,13 @@ function avaliacaoApp() {
     }
 }
 </script>
+
+<script>
+const _aiConfig = {
+    tipo: 'avaliacao',
+    aluno_id: {{ aluno.id | tojson }},
+    referencia_id: {{ (avaliacao.id if avaliacao else '') | tojson }}
+};
+</script>
+{% include 'components/ai_assistant.html' %}
 {% endblock %}

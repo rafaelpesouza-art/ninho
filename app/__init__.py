@@ -9,6 +9,7 @@ from .financeiro import financeiro_bp
 from .comunicacao import comunicacao_bp
 from .clinico import clinico_bp
 from .configuracoes import configuracoes_bp
+from .ia import ia_bp
 from postgrest.exceptions import APIError
 from flask import redirect, url_for, flash, session
 
@@ -30,6 +31,7 @@ def create_app(config_object="config.Config"):
     app.register_blueprint(comunicacao_bp, url_prefix="/comunicacao")
     app.register_blueprint(clinico_bp, url_prefix="/alunos")
     app.register_blueprint(configuracoes_bp, url_prefix="/configuracoes")
+    app.register_blueprint(ia_bp, url_prefix="/api")
 
     @app.errorhandler(APIError)
     def handle_api_error(error):

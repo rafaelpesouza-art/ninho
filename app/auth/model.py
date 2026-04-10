@@ -18,6 +18,30 @@ def buscar_perfil(sb, professor_id: str) -> dict:
         return {}
 
 
+def registrar_login(sb, professor_id: str) -> None:
+    """Atualiza ultimo_login e total_alunos no perfil do professor."""
+    from datetime import datetime, timezone
+    try:
+        r = sb.table("alunos").select("id", count="exact").eq("professor_id", professor_id).execute()
+        total = r.count or 0
+    except Exception:
+        total = None
+
+    payload = {"ultimo_login": datetime.now(timezone.utc).isoformat()}
+    if total is not None:
+        payload["total_alunos"] = total
+
+    try:
+        existing = buscar_perfil(sb, professor_id)
+        if existing:
+            sb.table("perfis_professor").update(payload).eq("professor_id", professor_id).execute()
+        else:
+            payload["professor_id"] = professor_id
+            sb.table("perfis_professor").insert(payload).execute()
+    except Exception:
+        pass
+
+
 def salvar_perfil(sb, professor_id: str, dados: dict, novo_logo_path: str | None = None) -> None:
     payload = {
         "professor_id":    professor_id,

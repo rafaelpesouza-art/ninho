@@ -2,13 +2,25 @@
 {% block title %}Devolutiva — {{ aluno.nome }}{% endblock %}
 
 {% block page_header %}
-<div class="flex items-center gap-3">
-    <a href="{{ url_for('comunicacao.index') }}" class="p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors">
-        <i data-lucide="arrow-left" class="w-5 h-5"></i>
-    </a>
-    <div>
-        <h1 class="text-xl font-black text-gray-800 leading-none">Devolutiva Semanal</h1>
-        <p class="text-gray-500 text-sm font-semibold mt-0.5">{{ aluno.nome }}</p>
+<div class="flex items-center justify-between w-full">
+    <div class="flex items-center gap-3">
+        <a href="{{ url_for('comunicacao.index') }}" class="p-2 rounded-xl hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors">
+            <i data-lucide="arrow-left" class="w-5 h-5"></i>
+        </a>
+        <div>
+            <h1 class="text-xl font-black text-gray-800 leading-none">Devolutiva Semanal</h1>
+            <p class="text-gray-500 text-sm font-semibold mt-0.5">{{ aluno.nome }}</p>
+        </div>
+    </div>
+    <div class="shrink-0">
+        <button type="button" onclick="window.dispatchEvent(new CustomEvent('open-ai-assistant'))"
+                class="hidden sm:flex items-center gap-2 px-4 py-2 border-2 border-primary text-primary font-bold rounded-xl hover:bg-primaryLight/30 transition-colors shadow-sm focus:ring-2 focus:ring-primary/40 group">
+            <i data-lucide="sparkles" class="w-4 h-4 group-hover:scale-110 transition-transform"></i> Usar IA
+        </button>
+        <button type="button" onclick="window.dispatchEvent(new CustomEvent('open-ai-assistant'))"
+                class="sm:hidden flex items-center justify-center p-2.5 bg-primaryLight/30 text-primary border border-primary/20 rounded-xl hover:bg-primaryLight transition-colors">
+            <i data-lucide="sparkles" class="w-5 h-5"></i>
+        </button>
     </div>
 </div>
 {% endblock %}
@@ -266,4 +278,13 @@ document.addEventListener('alpine:init', () => {
 <style>
     .scale-transition { transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
 </style>
+
+<script>
+const _aiConfig = {
+    tipo: 'registro',
+    aluno_id: {{ aluno.id | tojson }},
+    referencia_id: ''
+};
+</script>
+{% include 'components/ai_assistant.html' %}
 {% endblock %}

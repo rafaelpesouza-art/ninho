@@ -1,0 +1,427 @@
+<div x-data="aiAssistantApp()" @open-ai-assistant.window="openAI()" class="print:hidden">
+
+    <!-- Modal de Transcrição -->
+    <div x-cloak x-show="showTranscriptionModal"
+         class="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-gray-900/60 backdrop-blur-sm"
+         x-transition.opacity>
+        <div class="bg-white rounded-3xl w-full max-w-xl flex flex-col shadow-2xl overflow-hidden relative"
+             @click.away="!isAnalyzing ? showTranscriptionModal = false : null">
+
+            <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-primary/5">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center shadow-md">
+                        <i data-lucide="sparkles" class="w-5 h-5 text-white"></i>
+                    </div>
+                    <h3 class="font-bold text-xl text-gray-800 tracking-tight">Assistente IA</h3>
+                </div>
+                <button type="button" @click="showTranscriptionModal = false" :disabled="isAnalyzing"
+                        class="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-50">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="p-6">
+                <h4 class="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                    <i data-lucide="mic" class="w-4 h-4 text-primary"></i>
+                    Colar transcrição da sessão
+                </h4>
+                <p class="text-sm text-gray-500 mb-4 font-semibold">
+                    Cole o texto da transcrição do áudio para que a IA gere um resumo e fique disponível para responder perguntas.
+                </p>
+
+                <div class="mb-4">
+                    <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Data da sessão</label>
+                    <input type="date" x-model="dataSessao" :disabled="isAnalyzing"
+                           class="w-full sm:w-48 px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm bg-gray-50 focus:bg-white transition-colors">
+                </div>
+
+                <textarea x-model="transcricaoInput" :disabled="isAnalyzing" rows="7"
+                          placeholder="Cole aqui a transcrição do áudio da sessão..."
+                          class="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:ring-4 focus:ring-primary/20 focus:border-primary text-base transition-all bg-gray-50 focus:bg-white resize-y shadow-inner"></textarea>
+
+                <!-- Erro -->
+                <div x-show="erroTranscricao" x-cloak
+                     class="mt-3 flex items-center gap-2 text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 text-sm font-semibold">
+                    <i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i>
+                    <span x-text="erroTranscricao"></span>
+                </div>
+
+                <div class="mt-6 flex flex-col sm:flex-row-reverse gap-3">
+                    <button type="button" @click="salvarTranscricao()"
+                            :disabled="!transcricaoInput.trim() || isAnalyzing"
+                            class="sm:flex-1 px-6 py-3.5 bg-primary hover:bg-primaryHover disabled:bg-primary/50 text-white font-bold rounded-xl shadow-lg shadow-primary/30 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:active:scale-100 disabled:cursor-not-allowed">
+                        <i x-show="isAnalyzing" data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>
+                        <i x-show="!isAnalyzing" data-lucide="check-circle" class="w-5 h-5"></i>
+                        <span x-text="isAnalyzing ? 'A IA está analisando...' : 'Salvar e gerar resumo'"></span>
+                    </button>
+                    <button type="button" @click="abrirSemTranscricao()" :disabled="isAnalyzing"
+                            class="px-5 py-3.5 bg-white border border-gray-200 text-gray-600 font-bold rounded-xl hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                        <i data-lucide="message-circle" class="w-4 h-4"></i>
+                        Conversar sem transcrição
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlay mobile -->
+    <div x-cloak x-show="showSidebar"
+         class="fixed inset-0 z-[90] bg-gray-900/50 backdrop-blur-sm md:hidden"
+         @click="showSidebar = false" x-transition.opacity></div>
+
+    <!-- Painel Lateral de Chat -->
+    <aside x-cloak x-show="showSidebar"
+           class="fixed inset-y-0 right-0 z-[100] w-full md:max-w-[400px] bg-white shadow-2xl flex flex-col border-l border-gray-100"
+           x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+           x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
+           style="transition: transform 0.3s ease-in-out;">
+
+        <!-- Header -->
+        <div class="px-5 py-4 border-b border-gray-100 bg-white flex items-center justify-between shrink-0 shadow-sm z-10 relative">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-primary to-purple-400 flex items-center justify-center shadow-md">
+                    <i data-lucide="sparkles" class="w-4 h-4 text-white"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-gray-800 text-lg leading-tight tracking-tight">Assistente IA</h3>
+                    <p class="text-[11px] text-gray-500 font-black uppercase tracking-wider">Auxílio de Registro</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="button" @click="abrirNovaNota()"
+                        class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-primary bg-primaryLight/50 border border-primary/20 rounded-lg hover:bg-primaryLight transition-colors">
+                    <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nova nota
+                </button>
+                <button type="button" @click="showSidebar = false"
+                        class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-full transition-colors">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Body -->
+        <div class="flex-1 overflow-y-auto flex flex-col bg-gray-50/50" id="ia-scroll-area">
+
+            <!-- Resumo colapsável -->
+            <div class="p-4" x-data="{ expanded: true }" x-show="resumoSessao">
+                <div class="bg-primaryLight/30 border border-primary/20 rounded-2xl overflow-hidden shadow-sm">
+                    <button @click="expanded = !expanded"
+                            class="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-white/50 transition-colors">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="file-text" class="w-4 h-4 text-primary"></i>
+                            <span class="font-bold text-sm text-primary">Resumo da Sessão Analisada</span>
+                        </div>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-primary transition-transform duration-300"
+                           :class="expanded ? 'rotate-180' : ''"></i>
+                    </button>
+                    <div x-show="expanded" x-collapse>
+                        <div class="px-4 pb-4 pt-1 text-sm text-gray-700 font-medium leading-relaxed whitespace-pre-wrap"
+                             x-text="resumoSessao"></div>
+                        <div class="px-4 pb-3 flex justify-end">
+                            <button @click="copiarTexto(resumoSessao, $event)"
+                                    class="text-[11px] font-bold text-primary hover:text-primaryHover uppercase tracking-widest flex items-center gap-1 active:scale-95 transition-transform bg-white/60 px-3 py-1.5 rounded-lg border border-primary/20">
+                                <i data-lucide="copy" class="w-3 h-3"></i> Copiar Resumo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Separador histórico -->
+            <div class="text-center my-2" x-show="messages.length > 1">
+                <span class="text-[10px] font-bold uppercase tracking-widest text-gray-400 bg-gray-100 px-3 py-1 rounded-full">Conversa</span>
+            </div>
+
+            <!-- Mensagens -->
+            <div class="p-4 space-y-4 flex-1 flex flex-col pb-6">
+                <template x-for="(msg, idx) in messages" :key="idx">
+                    <div class="flex flex-col max-w-[88%] relative group"
+                         :class="msg.role === 'user' ? 'self-end items-end' : 'self-start items-start'">
+                        <span x-show="msg.role === 'assistant'"
+                              class="text-[10px] font-bold text-primary ml-1 mb-1">Assistente</span>
+                        <div class="px-4 py-3 rounded-2xl shadow-sm text-sm"
+                             :class="msg.role === 'user' ? 'bg-primary text-white rounded-br-sm' : 'bg-white border border-gray-200 text-gray-700 rounded-bl-sm'">
+                            <div class="whitespace-pre-wrap leading-relaxed font-medium" x-html="renderMessage(msg.content)"></div>
+                        </div>
+                        <div x-show="msg.role === 'assistant'"
+                             class="mt-1 flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button @click="copiarTexto(msg.content, $event)"
+                                    class="text-[11px] font-bold text-gray-400 hover:text-primary flex items-center gap-1 bg-white border border-gray-200 px-2.5 py-1 rounded-full shadow-sm ml-1 transition-colors">
+                                <i data-lucide="copy" class="w-3 h-3"></i> Copiar
+                            </button>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Indicador de digitação -->
+                <div x-show="isTyping" class="self-start" x-transition.opacity>
+                    <div class="bg-white border border-gray-200 px-4 py-4 rounded-2xl rounded-bl-sm shadow-sm flex items-center gap-2">
+                        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-primary animate-pulse"></i>
+                        <div class="flex gap-1">
+                            <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay:0ms"></div>
+                            <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay:150ms"></div>
+                            <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay:300ms"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Erro de chat -->
+                <div x-show="erroChat" x-cloak
+                     class="self-start flex items-center gap-2 text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-sm font-semibold max-w-[88%]">
+                    <i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i>
+                    <span x-text="erroChat"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="bg-white border-t border-gray-100 p-4 shadow-lg shrink-0">
+            <!-- Chips de sugestão -->
+            <div class="flex overflow-x-auto gap-2 mb-3 pb-1" style="scrollbar-width:none">
+                <template x-for="(sug, i) in sugestoes" :key="i">
+                    <button @click="usarSugestao(sug)"
+                            class="shrink-0 text-[11px] font-bold text-primary bg-primaryLight/50 hover:bg-primaryLight px-3 py-1.5 rounded-lg border border-primary/20 transition-colors whitespace-nowrap">
+                        <span x-text="sug"></span>
+                    </button>
+                </template>
+            </div>
+
+            <!-- Input -->
+            <form @submit.prevent="enviarMensagem"
+                  class="relative flex items-end rounded-2xl bg-gray-50 border border-gray-200 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
+                <textarea rows="1" x-model="newMessage" id="ia-chat-input"
+                          @keydown.enter.prevent="if(!$event.shiftKey) enviarMensagem()"
+                          placeholder="Pergunte sobre a sessão..."
+                          class="w-full bg-transparent border-none py-3 pl-4 pr-12 text-sm focus:outline-none resize-none max-h-32 text-gray-800 font-medium placeholder-gray-400"
+                          @input="autoGrow($event.target)"></textarea>
+                <button type="submit" :disabled="!newMessage.trim() || isTyping"
+                        class="absolute right-2 bottom-2 w-8 h-8 flex items-center justify-center rounded-xl bg-primary text-white hover:bg-primaryHover disabled:bg-gray-300 disabled:text-gray-500 transition-colors">
+                    <i data-lucide="send" class="w-4 h-4 ml-0.5"></i>
+                </button>
+            </form>
+            <p class="text-center mt-2 text-[9px] text-gray-400 font-semibold tracking-wide">
+                Enter para enviar · Pode conter imprecisões
+            </p>
+        </div>
+    </aside>
+</div>
+
+<script>
+function aiAssistantApp() {
+    // Configuração injetada por cada tela via _aiConfig
+    const cfg = (typeof _aiConfig !== 'undefined') ? _aiConfig : { tipo: 'registro', aluno_id: '', referencia_id: '' };
+
+    const SUGESTOES = {
+        anamnese:  ["Resuma a queixa principal", "Quais marcos de desenvolvimento?", "Histórico de saúde"],
+        avaliacao: ["Quais áreas de atenção?", "Pontos fortes observados", "Sugestão de encaminhamento"],
+        registro:  ["Faça um resumo da sessão", "Como estava o engajamento?", "Sugira próximos passos"],
+    };
+
+    return {
+        showTranscriptionModal: false,
+        showSidebar: false,
+        isAnalyzing: false,
+        isTyping: false,
+        transcricaoInput: '',
+        dataSessao: '',
+        resumoSessao: '',
+        newMessage: '',
+        transcricaoId: '',
+        notasCount: 0,
+        erroTranscricao: '',
+        erroChat: '',
+        sugestoes: SUGESTOES[cfg.tipo] || SUGESTOES.registro,
+        messages: [
+            { role: 'assistant', content: 'Olá! Cole a transcrição da sessão e eu gero um resumo para você. Depois, pode me fazer perguntas sobre o conteúdo.' }
+        ],
+
+        async openAI() {
+            this.erroTranscricao = '';
+            this.erroChat = '';
+
+            // Se já há referencia_id, verifica se existe transcrição no banco
+            if (cfg.referencia_id) {
+                try {
+                    const r = await fetch(`/api/transcricoes/${cfg.referencia_id}?tipo=${cfg.tipo}`);
+                    const data = await r.json();
+                    if (data.existe) {
+                        this.transcricaoId = data.transcricao_id;
+                        if (data.resumo) this.resumoSessao = data.resumo;
+                        await this.carregarHistorico();
+                        this.showSidebar = true;
+                        setTimeout(() => this.scrollToBottom(), 100);
+                        return;
+                    }
+                } catch(e) {}
+            }
+
+            // Sem transcrição — abre modal para colar
+            this.showTranscriptionModal = true;
+        },
+
+        abrirNovaNota() {
+            this.transcricaoInput = '';
+            this.dataSessao = '';
+            this.erroTranscricao = '';
+            this.showTranscriptionModal = true;
+        },
+
+        abrirSemTranscricao() {
+            this.showTranscriptionModal = false;
+            if (this.messages.length === 1) {
+                this.messages.push({
+                    role: 'assistant',
+                    content: 'Olá! Estou pronto para conversar. Você pode me perguntar sobre sessões anteriores, pedir sugestões de registro ou tirar dúvidas. Se quiser adicionar uma transcrição depois, use o botão "Nova nota".'
+                });
+            }
+            this.showSidebar = true;
+            lucide.createIcons();
+            setTimeout(() => this.scrollToBottom(), 100);
+        },
+
+        async carregarHistorico() {
+            if (!this.transcricaoId) return;
+            try {
+                const r = await fetch(`/api/chat-ia/${this.transcricaoId}/historico`);
+                const data = await r.json();
+                if (data.mensagens && data.mensagens.length > 0) {
+                    this.messages = [this.messages[0]]; // mantém saudação inicial
+                    for (const m of data.mensagens) {
+                        this.messages.push({ role: m.role, content: m.conteudo });
+                    }
+                }
+            } catch(e) {}
+        },
+
+        async salvarTranscricao() {
+            if (!this.transcricaoInput.trim()) return;
+            this.isAnalyzing = true;
+            this.erroTranscricao = '';
+
+            const eraNovaNota = !!this.transcricaoId; // já havia uma transcrição antes
+
+            try {
+                const r = await fetch('/api/transcricoes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tipo: cfg.tipo,
+                        aluno_id: cfg.aluno_id,
+                        referencia_id: cfg.referencia_id || null,
+                        texto: this.transcricaoInput.trim(),
+                        data_sessao: this.dataSessao || null,
+                    })
+                });
+                const data = await r.json();
+
+                if (!r.ok) {
+                    this.erroTranscricao = data.erro || 'Não foi possível conectar com a IA, tente novamente.';
+                    return;
+                }
+
+                // Se era nova nota, mantém o transcricaoId do chat existente
+                // O backend usa referencia_id para buscar TODAS as notas ao gerar resposta
+                if (!eraNovaNota) {
+                    this.transcricaoId = data.transcricao_id;
+                }
+                this.resumoSessao = data.resumo || '';
+                this.showTranscriptionModal = false;
+
+                const msg = eraNovaNota
+                    ? `Nova nota adicionada! Agora tenho acesso a ${this.notasCount + 1} notas desta sessão. O que deseja saber?`
+                    : 'Resumo gerado! Já entendi o contexto desta sessão. O que você gostaria de analisar ou documentar?';
+                this.notasCount = (this.notasCount || 0) + 1;
+                this.messages.push({ role: 'assistant', content: msg });
+                this.showSidebar = true;
+                lucide.createIcons();
+                setTimeout(() => this.scrollToBottom(), 100);
+
+            } catch(e) {
+                this.erroTranscricao = 'Não foi possível conectar com a IA, tente novamente.';
+            } finally {
+                this.isAnalyzing = false;
+            }
+        },
+
+        async enviarMensagem() {
+            const texto = this.newMessage.trim();
+            if (!texto || this.isTyping) return;
+
+            this.messages.push({ role: 'user', content: texto });
+            this.newMessage = '';
+            const ta = document.getElementById('ia-chat-input');
+            if (ta) ta.style.height = 'auto';
+            this.isTyping = true;
+            this.erroChat = '';
+            setTimeout(() => this.scrollToBottom(), 50);
+
+            try {
+                const payload = { mensagem: texto };
+                if (this.transcricaoId) {
+                    payload.transcricao_id = this.transcricaoId;
+                } else {
+                    payload.aluno_id = cfg.aluno_id;
+                    payload.historico = this.messages
+                        .map(m => ({ role: m.role, conteudo: m.content }));
+                }
+                const r = await fetch('/api/chat-ia', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await r.json();
+
+                if (!r.ok) {
+                    this.erroChat = data.erro || 'Não foi possível conectar com a IA, tente novamente.';
+                } else {
+                    this.messages.push({ role: 'assistant', content: data.resposta });
+                    this.erroChat = '';
+                }
+            } catch(e) {
+                this.erroChat = 'Não foi possível conectar com a IA, tente novamente.';
+            } finally {
+                this.isTyping = false;
+                setTimeout(() => { this.scrollToBottom(); lucide.createIcons(); }, 50);
+            }
+        },
+
+        usarSugestao(texto) {
+            this.newMessage = texto;
+            const ta = document.getElementById('ia-chat-input');
+            if (ta) { ta.focus(); this.autoGrow(ta); }
+            this.enviarMensagem();
+        },
+
+        copiarTexto(texto, event) {
+            navigator.clipboard.writeText(texto).then(() => {
+                const icon = event.currentTarget.querySelector('i');
+                const prev = icon.getAttribute('data-lucide');
+                icon.setAttribute('data-lucide', 'check');
+                icon.classList.add('text-green-500');
+                lucide.createIcons();
+                setTimeout(() => {
+                    icon.setAttribute('data-lucide', prev);
+                    icon.classList.remove('text-green-500');
+                    lucide.createIcons();
+                }, 2000);
+            });
+        },
+
+        autoGrow(el) {
+            el.style.height = 'auto';
+            el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+        },
+
+        scrollToBottom() {
+            const el = document.getElementById('ia-scroll-area');
+            if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+        },
+
+        renderMessage(content) {
+            let s = content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            s = s.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+            return s;
+        }
+    };
+}
+</script>

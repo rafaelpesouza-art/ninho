@@ -1,7 +1,7 @@
 from flask import request, jsonify, session, render_template, redirect, url_for, flash, Response
 from . import auth_bp
 from ..extensions import get_supabase
-from .model import buscar_perfil, salvar_perfil, nome_exibicao, inicial, fazer_upload_logo, buscar_foto_bytes
+from .model import buscar_perfil, salvar_perfil, registrar_login, nome_exibicao, inicial, fazer_upload_logo, buscar_foto_bytes
 from ..auth.decorators import login_required
 
 
@@ -54,6 +54,7 @@ def login():
 
         sb.postgrest.auth(response.session.access_token)
         _carregar_perfil_na_sessao(sb, user.id)
+        registrar_login(sb, user.id)
 
         if not session.get("perfil_completo"):
             return redirect(url_for("auth.completar_perfil"))
